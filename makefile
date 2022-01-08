@@ -12,5 +12,7 @@ NAME_OUT2 := ./src/up_down
 run:
 	$(GCC) $(VERSION_FLAG) $(NCURSES_FLAG) $(OBJS2) -o $(NAME_OUT); $(NAME_OUT2)
 
+install: 
+	brew install gcc gpp
 
 
