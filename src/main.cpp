@@ -261,20 +261,20 @@ public:
 
         for(int i = 0; i < cluster4; ++i){
             // * Bounding checking 
-            // if(
-            //     enemies[i].posX + enemies[i].velocityX <= 0 || // Bounding X LEFT
-            //     enemies[i].posX + enemies[i].velocityX > g_screenWidth - THRESHOLD || // Bounding X RIGHT
-            //     enemies[i].posY + enemies[i].velocityY < THRESHOLD || // Bounding Y Top
-            //     enemies[i].posY > g_screenHeight - THRESHOLD // Bounding Y DOWN
-            // ){
-            //     enemies[i].bVisible = false;
-            // } else{
-            //     enemies[i].bVisible = true;
-            // }
-            enemies[i].bVisible = true;
+            if(
+                enemies[i].posX + enemies[i].velocityX <= 0 || // Bounding X LEFT
+                enemies[i].posX + enemies[i].velocityX > g_screenWidth - THRESHOLD || // Bounding X RIGHT
+                enemies[i].posY + enemies[i].velocityY < THRESHOLD || // Bounding Y Top
+                enemies[i].posY > g_screenHeight - THRESHOLD // Bounding Y DOWN
+            ){
+                enemies[i].bVisible = false;
+            } else{
+                enemies[i].bVisible = true;
+            }
+            // enemies[i].bVisible = true;
 
-            // enemies[i].posX += enemies[i].velocityX;
-            // enemies[i].posY += enemies[i].velocityY;
+            enemies[i].posX += enemies[i].velocityX;
+            enemies[i].posY += enemies[i].velocityY;
 
             if(!enemies[i].bVisible){
                 ++countVisible;
@@ -312,9 +312,9 @@ private:
 class Core : public Entity
 {
 public:
-    std::unique_ptr<Player> player;
-    std::unique_ptr<Board> board;
-    std::unique_ptr<Enemy> enemy;
+    Player* player;
+    Board* board;
+    Enemy* enemy;
 
     Core()
     {
@@ -374,9 +374,9 @@ public:
 
     void initializeInstance()
     {
-        player = std::make_unique<Player>('#');
-        board = std::make_unique<Board>();
-        enemy = std::make_unique<Enemy>('^', FROM_LEFT, DIR_UP, 5, 0.9);
+        player = new Player('#');
+        board = new Board();
+        enemy = new Enemy('^', FROM_LEFT, DIR_UP, 5, 0.9);
     }
 
 private:
