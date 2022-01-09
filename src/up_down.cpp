@@ -8,12 +8,15 @@
 #include <unordered_map>
 
 #define THRESHOLD 2
+#define SECOND 1000
 
 unsigned short int g_windowWidth, g_windowHeight;
 unsigned short int g_screenWidth, g_screenHeight;
 short int keyPressed;
 unsigned short int TIMEOUT;
 int slope, spaceBetween;
+
+long double current_ticks = 0;
 
 enum : int {
     ASCEND_SLOPE = -1,
@@ -73,6 +76,11 @@ struct BaseCluster {
     int velocityX, velocityY;
     bool bVisible;
 } be;
+
+struct BaseSequenceBlock {
+    std::vector<int> listBlock;
+    bool bRevealed;
+} bsb;
 
 class Entity {
     public:
@@ -181,7 +189,7 @@ private:
  */
 std::unordered_map<int, Block> g_listShape;
 std::vector<FloatingBlock> g_listBlock;
-
+std::unordered_map<long double, BaseSequenceBlock> sequenceRevealBlock;
 class Board : public Entity
 {
 public:
@@ -330,11 +338,6 @@ public:
                 ) {
                     g_isPlaying = false;
                 }
-                mvprintw(g_screenHeight + i * 2 + 2, 5, std::to_string(cluster[i].posX).c_str());
-                mvprintw(g_screenHeight + i * 2 + 2, 10, std::to_string(cluster[i].posY).c_str());
-                mvprintw(g_screenHeight + 5, 20, std::to_string(posX).c_str());
-                mvprintw(g_screenHeight + 5, 25, std::to_string(posY).c_str());
-                // mvprintw(g_screenHeight + 5, 50, std::to_string(lengthList).c_str());
             }
         }
    }
@@ -369,6 +372,7 @@ public:
         this->getTerminalDimension();
         this->getReponsiveMetrics();
         this->initializeBlockShape();
+        this->initializeSequenceRevealShape();
         this->initializeInstance();
     }
 
@@ -382,6 +386,10 @@ public:
                 block->update();
             }
         }
+
+        // * Update
+        this->computeTicks();
+        this->checkTickForRevealingBlock();
         g_bRunning = player->isPlaying();
     }
 
@@ -390,6 +398,11 @@ public:
         getmaxyx(stdscr, g_windowHeight, g_windowWidth);
         g_screenWidth = g_windowWidth * 0.7;
         g_screenHeight = g_screenWidth * 0.2;
+    }
+
+    void computeTicks()
+    {
+        current_ticks += (double) TIMEOUT / SECOND;
     }
 
     void getReponsiveMetrics()
@@ -425,16 +438,48 @@ public:
             slope = 4;
             spaceBetween = 20;
         }
-
-        // TIMEOUT = 100;
     }
 
     void initializeInstance()
     {
         player = new Player('#');
         board = new Board();
-        g_listBlock.push_back(FloatingBlock(&g_listShape[BLOCK_LEFT_TWO_1]));
-        g_listBlock.push_back(FloatingBlock(&g_listShape[BLOCK_RIGHT_THREE_1]));
+        // g_listBlock.push_back(FloatingBlock(&g_listShape[BLOCK_LEFT_TWO_1]));
+    }
+
+    void assignBlockShape(int typeBlock, char chr, int quantity, int directionFrom, int additionX, int additionY, int positionY)
+    {
+        g_listShape[typeBlock].chr = chr;
+        g_listShape[typeBlock].quantity = quantity;
+        g_listShape[typeBlock].directionFrom = directionFrom;
+        g_listShape[typeBlock].additionX = additionX;
+        g_listShape[typeBlock].additionY = additionY;
+        g_listShape[typeBlock].positionY = positionY;
+    }
+
+    void assignSequenceShape(long double ticks, int typeBlock)
+    {
+        sequenceRevealBlock[ticks].listBlock.push_back(typeBlock);
+        sequenceRevealBlock[ticks].bRevealed = false;
+    }
+
+    void checkTickForRevealingBlock()
+    {
+        // ?
+        mvprintw(g_screenHeight + 2, 5, std::to_string((long)current_ticks).c_str());
+
+        bool bRevealed = sequenceRevealBlock[(long)current_ticks].bRevealed;
+        std::vector<int> vt = sequenceRevealBlock[(long)current_ticks].listBlock;
+
+        if(vt.size() == 0 || bRevealed){
+            return;
+        }
+
+        for (std::vector<int>::iterator it = vt.begin(); it != vt.end(); it++){
+            g_listBlock.push_back(FloatingBlock(&g_listShape[*it]));
+        }
+
+        sequenceRevealBlock[(long)current_ticks].bRevealed = true;
     }
 
     void initializeBlockShape()
@@ -442,7 +487,6 @@ public:
         // TWO
         this->assignBlockShape(BLOCK_LEFT_TWO_1, '^', 2, FROM_LEFT, 0, 3, slope + 3);
         this->assignBlockShape(BLOCK_RIGHT_TWO_1, '^', 2, FROM_RIGHT, 0, 3, slope + 3);
-
         this->assignBlockShape(BLOCK_LEFT_TWO_2, '^', 2, FROM_LEFT, 0, 4, slope + 1);
         this->assignBlockShape(BLOCK_RIGHT_TWO_2, '^', 2, FROM_RIGHT, 0, 4, slope + 1);
 
@@ -460,14 +504,12 @@ public:
 
     }
 
-    void assignBlockShape(int typeBlock, char chr, int quantity, int directionFrom, int additionX, int additionY, int positionY)
+    void initializeSequenceRevealShape()
     {
-        g_listShape[typeBlock].chr = chr;
-        g_listShape[typeBlock].quantity = quantity;
-        g_listShape[typeBlock].directionFrom = directionFrom;
-        g_listShape[typeBlock].additionX = additionX;
-        g_listShape[typeBlock].additionY = additionY;
-        g_listShape[typeBlock].positionY = positionY;
+        this->assignSequenceShape(1, BLOCK_LEFT_TWO_1);
+        this->assignSequenceShape(2, BLOCK_LEFT_TWO_1);
+        this->assignSequenceShape(3, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(5, BLOCK_LEFT_THREE_1);
     }
 
 private:
