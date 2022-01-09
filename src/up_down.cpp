@@ -11,6 +11,7 @@
 
 unsigned short int g_windowWidth, g_windowHeight;
 unsigned short int g_screenWidth, g_screenHeight;
+short int keyPressed;
 unsigned short int TIMEOUT;
 int slope, spaceBetween;
 
@@ -20,6 +21,32 @@ enum : int {
     FROM_LEFT = 1,
     FROM_RIGHT = -1,
 
+    /*
+    *   @
+    *   
+    *   @
+    */
+    BLOCK_LEFT_TWO_1,
+    BLOCK_RIGHT_TWO_1,
+    BLOCK_LEFT_TWO_2,
+    BLOCK_RIGHT_TWO_2,
+
+    /*
+    *   @  @  @
+    *   ------
+    *   @  @  @
+    */
+    BLOCK_LEFT_THREE_1,
+    BLOCK_RIGHT_THREE_1,
+    BLOCK_LEFT_THREE_2,
+    BLOCK_RIGHT_THREE_2,
+
+    /*
+    *        @ | @
+    *      @   |   @
+    *    @     |     @
+    *  @       |       @
+    */
     BLOCK_LEFT_FOUR_1,
     BLOCK_LEFT_FOUR_2,
     BLOCK_RIGHT_FOUR_1,
@@ -33,9 +60,11 @@ enum : int {
  * LICENSE file in the root directory of this source tree.
  */
 struct Block {
+    char chr;
     int quantity;
     int directionFrom;
-    int directionWave;
+    int additionX;
+    int additionY;
     int positionY;
 } b;
 
@@ -55,14 +84,9 @@ class Entity {
 class FloatingBlock : public Entity
 {
 public: 
-    Block* block;
-    BaseCluster *clusterBlock;
-    
-    char chr;
-    int positionX;
 
-    FloatingBlock(char chr, Block* block)
-    : chr(chr), block(block), clusterBlock(new BaseCluster[block->quantity]), m_shouldDestroy(false)
+    FloatingBlock(Block* block)
+    : block(block), clusterBlock(new BaseCluster[block->quantity]), m_bOutOfScope(false)
     {
         this->init();
     }
@@ -80,8 +104,8 @@ public:
         }
 
         for(int i = 0; i < block->quantity; ++i){
-            clusterBlock[i].posX = (i * spaceBetween) + positionX;
-            clusterBlock[i].posY = (i * slope * block->directionWave) + block->positionY;
+            clusterBlock[i].posX = (i * spaceBetween * block->additionX) + positionX;
+            clusterBlock[i].posY = (i * slope * block->additionY) + block->positionY;
             clusterBlock[i].velocityX = block->directionFrom;
             clusterBlock[i].velocityY = 0;
         }
@@ -95,16 +119,16 @@ public:
             
             // * Render
             if(clusterBlock[i].bVisible){
-                mvwaddch(stdscr, clusterBlock[i].posY, clusterBlock[i].posX, chr);
+                mvwaddch(stdscr, clusterBlock[i].posY, clusterBlock[i].posX, block->chr);
                 wmove(stdscr, g_screenHeight, g_screenWidth);
             }
 
             // * Bounding checking 
             if(
-                clusterBlock[i].posX + clusterBlock[i].velocityX <= 0 || // Bounding X LEFT
-                clusterBlock[i].posX + clusterBlock[i].velocityX > g_screenWidth - THRESHOLD || // Bounding X RIGHT
-                clusterBlock[i].posY + clusterBlock[i].velocityY < THRESHOLD || // Bounding Y Top
-                clusterBlock[i].posY > g_screenHeight - THRESHOLD // Bounding Y DOWN
+                clusterBlock[i].posX + clusterBlock[i].velocityX <= 0 || 
+                clusterBlock[i].posX + clusterBlock[i].velocityX > g_screenWidth - THRESHOLD || 
+                clusterBlock[i].posY + clusterBlock[i].velocityY < THRESHOLD || 
+                clusterBlock[i].posY > g_screenHeight - THRESHOLD 
             ){
                 clusterBlock[i].bVisible = false;
             } else{
@@ -114,15 +138,18 @@ public:
             clusterBlock[i].posX += clusterBlock[i].velocityX;
             clusterBlock[i].posY += clusterBlock[i].velocityY;
 
-            if(!clusterBlock[i].bVisible){
+            if(
+                (block->directionFrom == FROM_LEFT && clusterBlock[i].posX > g_screenWidth) ||
+                (block->directionFrom == FROM_RIGHT && clusterBlock[i].posX < 0)
+            ){
                 ++countVisible;
-            }
+            } 
         }
 
         // * call destructor when cluster out of scope
         if(countVisible == block->quantity){
+            m_bOutOfScope = true;
             this->~FloatingBlock();
-            m_shouldDestroy = true;
         }
     }
 
@@ -136,13 +163,17 @@ public:
         return block;
     }
     
-    bool shouldDestroy()
+    bool bOutOfScope()
     {
-        return m_shouldDestroy;
+        return m_bOutOfScope;
     }
 
 private:
-    bool m_shouldDestroy;
+    bool m_bOutOfScope;
+    Block* block;
+    BaseCluster *clusterBlock;
+    
+    int positionX;
 };
 
 /*
@@ -172,6 +203,12 @@ public:
 
     void update()
     {
+        this->drawIntro();
+        this->drawBoard();
+    }
+
+    void drawBoard()
+    {
         for(int i = 0; i < g_screenHeight; ++i){
            for(int j = 0; j < g_screenWidth; ++j){
                if(i == 0 || i == g_screenHeight - 1 || j == 0 || j == g_screenWidth - 1){
@@ -184,6 +221,12 @@ public:
        }
     }
 
+    void drawIntro()
+    {
+        printw("Welcome to the Game");
+        printw("\n");
+    }
+
 private:
 
 };
@@ -191,12 +234,6 @@ private:
 class Player : public Entity
 {
 public:
-
-   int velocityX, velocityY;
-   int posX, posY;
-   char chr;
-   bool g_isPlaying;
-   int tempX, tempY;
 
    Player(char chr)
    : chr(chr), g_isPlaying(true), velocityX(0), velocityY(1), posX((g_screenWidth + g_screenHeight) / 2), posY(THRESHOLD)
@@ -234,13 +271,13 @@ public:
             posX += velocityX;
         }
 
-       posY += 1 * velocityY;
-    //    this->onCheckingCollision();
+        posY += 1 * velocityY;
+        // ?
+        // this->onCheckingCollision();
    }
 
    void onListenKeyPressed()
    {
-        int keyPressed = getch();
         switch(keyPressed)
         {
             case KEY_LEFT:
@@ -273,50 +310,48 @@ public:
 
    void onCheckingCollision()
    {
-       // ?
-       int lengthList = g_listBlock.size();
        for (std::vector<FloatingBlock>::iterator it = g_listBlock.begin(); it != g_listBlock.end(); it++){
             BaseCluster* cluster = it->getCluster();
             Block* block = it->getBlock();
+            
+            if(it->bOutOfScope()){
+                continue;
+            }
 
             for(int i = 0; i < block->quantity; ++i){
                 if(
-                    // posX >= cluster[i].posX - THRESHOLD + 1 &&
-                    // posX <= cluster[i].posX - 1 &&
-                    // posY == cluster[i].posY - THRESHOLD + 1 &&
-                    // posY == cluster[i].posY - 1
-                    posX == cluster[i].posX &&
-                    posY == cluster[i].posY
+                    (posX == cluster[i].posX + 1 && posY == cluster[i].posY + 1) || 
+                    (posX == cluster[i].posX - 1 && posY == cluster[i].posY - 1) || 
+                    (posX == cluster[i].posX + 1 && posY == cluster[i].posY) ||
+                    (posX == cluster[i].posX - 1 && posY == cluster[i].posY) ||
+                    (posX == cluster[i].posX && posY == cluster[i].posY + 1) ||
+                    (posX == cluster[i].posX && posY == cluster[i].posY - 1) ||
+                    (posX == cluster[i].posX && posY == cluster[i].posY)
                 ) {
-                    // g_isPlaying = false;
-                    tempX = posX;
-                    tempY = posY;
+                    g_isPlaying = false;
                 }
-                // mvprintw(g_screenHeight + i * 2 + 2, 5, std::to_string(cluster[i].posX).c_str());
-                // mvprintw(g_screenHeight + i * 2 + 2, 10, std::to_string(cluster[i].posY).c_str());
-                // mvprintw(g_screenHeight + 5, 20, std::to_string(posX).c_str());
-                // mvprintw(g_screenHeight + 5, 25, std::to_string(posY).c_str());
-
-                // mvprintw(g_screenHeight + 5, 30, std::to_string(tempX).c_str());
-                // mvprintw(g_screenHeight + 5, 35, std::to_string(tempY).c_str());
+                mvprintw(g_screenHeight + i * 2 + 2, 5, std::to_string(cluster[i].posX).c_str());
+                mvprintw(g_screenHeight + i * 2 + 2, 10, std::to_string(cluster[i].posY).c_str());
+                mvprintw(g_screenHeight + 5, 20, std::to_string(posX).c_str());
+                mvprintw(g_screenHeight + 5, 25, std::to_string(posY).c_str());
                 // mvprintw(g_screenHeight + 5, 50, std::to_string(lengthList).c_str());
             }
         }
    }
 
 private:
-
+    bool g_isPlaying;
+    int velocityX, velocityY;
+    int posX, posY;
+    char chr;
 };
 
 class Core : public Entity
 {
 public:
-    Player* player;
-    Board* board;
-    bool g_bRunning;
 
     Core()
-        : g_bRunning(true)
+    : g_bRunning(true)
     {
     }
 
@@ -333,23 +368,20 @@ public:
     {
         this->getTerminalDimension();
         this->getReponsiveMetrics();
-        this->setBlockLevel();
+        this->initializeBlockShape();
         this->initializeInstance();
     }
 
     void update()
     {   
         // * Render
-        printw("Welcome to the Game");
-        printw("\n");
         board->update();
         player->update();
         for (std::vector<FloatingBlock>::iterator block = g_listBlock.begin(); block != g_listBlock.end(); block++){
-            block->update();
-            if(block->shouldDestroy()){
+            if(!block->bOutOfScope()){
+                block->update();
             }
         }
-
         g_bRunning = player->isPlaying();
     }
 
@@ -380,11 +412,11 @@ public:
             TIMEOUT = 45;
             slope = 2;
             spaceBetween = 10;
-        } else if(g_windowWidth <= 150){
+        } else if(g_windowWidth <= 140){
             TIMEOUT = 35;
             slope = 3;
             spaceBetween = 15;
-        } else if(g_windowWidth <= 170){
+        } else if(g_windowWidth <= 160){
             TIMEOUT = 30;
             slope = 4;
             spaceBetween = 20;
@@ -393,45 +425,55 @@ public:
             slope = 4;
             spaceBetween = 20;
         }
+
+        // TIMEOUT = 100;
     }
 
     void initializeInstance()
     {
         player = new Player('#');
         board = new Board();
-        g_listBlock.push_back(FloatingBlock('^', &g_listShape[BLOCK_LEFT_FOUR_1]));
-        // g_listBlock.push_back(FloatingBlock('^', &g_listShape[BLOCK_RIGHT_FOUR_1]));
+        g_listBlock.push_back(FloatingBlock(&g_listShape[BLOCK_LEFT_TWO_1]));
+        g_listBlock.push_back(FloatingBlock(&g_listShape[BLOCK_RIGHT_THREE_1]));
     }
 
-    void setBlockLevel()
+    void initializeBlockShape()
     {
-        // FOUR/LEFT/ASCEND
-        g_listShape[BLOCK_LEFT_FOUR_1].quantity = 4;
-        g_listShape[BLOCK_LEFT_FOUR_1].directionFrom = FROM_LEFT;
-        g_listShape[BLOCK_LEFT_FOUR_1].directionWave = ASCEND_SLOPE;
-        g_listShape[BLOCK_LEFT_FOUR_1].positionY = 
-            g_listShape[BLOCK_LEFT_FOUR_1].directionWave == ASCEND_SLOPE ? g_screenHeight - slope - 1 : 
-            g_listShape[BLOCK_LEFT_FOUR_1].directionWave == DESCEND_SLOPE ? slope + 3 : 0;
+        // TWO
+        this->assignBlockShape(BLOCK_LEFT_TWO_1, '^', 2, FROM_LEFT, 0, 3, slope + 3);
+        this->assignBlockShape(BLOCK_RIGHT_TWO_1, '^', 2, FROM_RIGHT, 0, 3, slope + 3);
 
-        // FOUR/LEFT/DESCEND
-        g_listShape[BLOCK_LEFT_FOUR_2].quantity = 4;
-        g_listShape[BLOCK_LEFT_FOUR_2].directionFrom = FROM_LEFT;
-        g_listShape[BLOCK_LEFT_FOUR_2].directionWave = DESCEND_SLOPE;
-        g_listShape[BLOCK_LEFT_FOUR_2].positionY = 
-            g_listShape[BLOCK_LEFT_FOUR_2].directionWave == ASCEND_SLOPE ? g_screenHeight - slope - 1 : 
-            g_listShape[BLOCK_LEFT_FOUR_2].directionWave == DESCEND_SLOPE ? slope + 3 : 0;
+        this->assignBlockShape(BLOCK_LEFT_TWO_2, '^', 2, FROM_LEFT, 0, 4, slope + 1);
+        this->assignBlockShape(BLOCK_RIGHT_TWO_2, '^', 2, FROM_RIGHT, 0, 4, slope + 1);
 
-        // FOUR/RIGHT/ASCEND
-        g_listShape[BLOCK_RIGHT_FOUR_1].quantity = 4;
-        g_listShape[BLOCK_RIGHT_FOUR_1].directionFrom = FROM_RIGHT;
-        g_listShape[BLOCK_RIGHT_FOUR_1].directionWave = DESCEND_SLOPE;
-        g_listShape[BLOCK_RIGHT_FOUR_1].positionY = 
-            g_listShape[BLOCK_RIGHT_FOUR_1].directionWave == ASCEND_SLOPE ? g_screenHeight - slope - 1 : 
-            g_listShape[BLOCK_RIGHT_FOUR_1].directionWave == DESCEND_SLOPE ? slope + 3 : 0;
+        // THREE
+        this->assignBlockShape(BLOCK_LEFT_THREE_1, '^', 3, FROM_LEFT, 2, 0, slope + 1);
+        this->assignBlockShape(BLOCK_RIGHT_THREE_1, '^', 3, FROM_RIGHT, 2, 0, slope + 1);
+        this->assignBlockShape(BLOCK_LEFT_THREE_2, '^', 3, FROM_LEFT, 2, 0, g_screenHeight - (slope + 1));
+        this->assignBlockShape(BLOCK_RIGHT_THREE_2, '^', 3, FROM_RIGHT, 2, 0, g_screenHeight - (slope + 1));
+
+        // FOUR
+        this->assignBlockShape(BLOCK_LEFT_FOUR_1, '^', 4, FROM_LEFT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
+        this->assignBlockShape(BLOCK_LEFT_FOUR_2, '^', 4, FROM_LEFT, 1, DESCEND_SLOPE, slope + 3);
+        this->assignBlockShape(BLOCK_RIGHT_FOUR_1, '^', 4, FROM_RIGHT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
+        this->assignBlockShape(BLOCK_RIGHT_FOUR_2, '^', 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
+
+    }
+
+    void assignBlockShape(int typeBlock, char chr, int quantity, int directionFrom, int additionX, int additionY, int positionY)
+    {
+        g_listShape[typeBlock].chr = chr;
+        g_listShape[typeBlock].quantity = quantity;
+        g_listShape[typeBlock].directionFrom = directionFrom;
+        g_listShape[typeBlock].additionX = additionX;
+        g_listShape[typeBlock].additionY = additionY;
+        g_listShape[typeBlock].positionY = positionY;
     }
 
 private:
-    
+    Player* player;
+    Board* board;
+    bool g_bRunning;
 };
 
 int main(int argc, const char * argv[]) 
@@ -447,6 +489,7 @@ int main(int argc, const char * argv[])
     timeout(TIMEOUT);
 
     while(core->isRunning()) {
+        keyPressed = getch();
         wclear(stdscr);
         core->update();
         refresh();
