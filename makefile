@@ -4,14 +4,14 @@ OBJS = $(SRCS:.cpp=.cpp)
 GCC ?= g++
 VERSION_FLAG := --std=c++17
 NCURSES_FLAG := -lncurses
-NAME_IN := main.cpp
+NAME_IN := up_down.cpp
 NAME_OUT := ./src/up_down
 
 runmac:
-	$(GCC) $(VERSION_FLAG) $(NCURSES_FLAG) $(OBJS) -o $(NAME_OUT); $(NAME_OUT)
+	$(GCC) $(NCURSES_FLAG) $(OBJS) -o $(NAME_OUT); $(NAME_OUT)
 
 runwin:
-	$(GCC) src\main.cpp $(NCURSES_FLAG) -o src\up_down && src\up_down
+	$(GCC) src\up_down.cpp $(NCURSES_FLAG) -o src\up_down && src\up_down
 
 install: 
 	brew install gcc gpp
