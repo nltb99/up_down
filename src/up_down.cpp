@@ -24,7 +24,7 @@ enum : int {
     FROM_LEFT = 1,
     FROM_RIGHT = -1,
 
-    /*
+   /*
     *   @
     *   
     *   @
@@ -34,7 +34,7 @@ enum : int {
     BLOCK_LEFT_TWO_2,
     BLOCK_RIGHT_TWO_2,
 
-    /*
+   /*
     *   @  @  @
     *   ------
     *   @  @  @
@@ -44,7 +44,7 @@ enum : int {
     BLOCK_LEFT_THREE_2,
     BLOCK_RIGHT_THREE_2,
 
-    /*
+   /*
     *        @ | @
     *      @   |   @
     *    @     |     @
@@ -54,21 +54,35 @@ enum : int {
     BLOCK_LEFT_FOUR_2,
     BLOCK_RIGHT_FOUR_1,
     BLOCK_RIGHT_FOUR_2,
+
+   /*
+    *   @
+    *   
+    * 
+    *     
+    */
+    BLOCK_LEFT_ONE_ANIMATION_1,
+    BLOCK_LEFT_ONE_ANIMATION_2,
+    BLOCK_RIGHT_ONE_ANIMATION_1,
+    BLOCK_RIGHT_ONE_ANIMATION_2,
 };
 
 /*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *  *
  *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
  */
 struct Block {
     char chr;
     int quantity;
-    int directionFrom;
-    int additionX;
-    int additionY;
-    int positionY;
+    int directionX;
+    int multiplicationX;
+    int multiplicationY;
+    int initPositionY;
+    int nextTickTriggerY;
+    int minPositionY;
+    int maxPostionY;
+    int directionY;
+    bool useReverseDirectionY;
 } b;
 
 struct BaseCluster {
@@ -93,8 +107,8 @@ class FloatingBlock : public Entity
 {
 public: 
 
-    FloatingBlock(Block* block)
-    : block(block), clusterBlock(new BaseCluster[block->quantity]), m_bOutOfScope(false)
+    FloatingBlock(Block* block, long double tickReveal)
+    : block(block), tickReveal(tickReveal), clusterBlock(new BaseCluster[block->quantity]), m_bOutOfScope(false)
     {
         this->init();
     }
@@ -105,23 +119,23 @@ public:
 
     void init()
     {   
-        if(block->directionFrom == FROM_LEFT){
+        if(block->directionX == FROM_LEFT){
             positionX = 0 - (spaceBetween * block->quantity) + (THRESHOLD * block->quantity);
-        } else if(block->directionFrom == FROM_RIGHT){
+        } else if(block->directionX == FROM_RIGHT){
             positionX = g_screenWidth;
         }
 
         for(int i = 0; i < block->quantity; ++i){
-            clusterBlock[i].posX = (i * spaceBetween * block->additionX) + positionX;
-            clusterBlock[i].posY = (i * slope * block->additionY) + block->positionY;
-            clusterBlock[i].velocityX = block->directionFrom;
+            clusterBlock[i].posX = (i * spaceBetween * block->multiplicationX) + positionX;
+            clusterBlock[i].posY = (i * slope * block->multiplicationY) + block->initPositionY;
+            clusterBlock[i].velocityX = block->directionX;
             clusterBlock[i].velocityY = 0;
         }
     }
 
     void update()
     {
-        unsigned short int countVisible = 0;
+        unsigned short int countOutOfScope = 0;
 
         for(int i = 0; i < block->quantity; ++i){
             
@@ -143,19 +157,38 @@ public:
                 clusterBlock[i].bVisible = true;
             }
 
+            // * Update position
             clusterBlock[i].posX += clusterBlock[i].velocityX;
-            clusterBlock[i].posY += clusterBlock[i].velocityY;
+            
+            if(block->nextTickTriggerY > 0){
+                if((long)current_ticks - tickReveal == block->nextTickTriggerY){
+                    if(clusterBlock[i].posY >= block->maxPostionY || clusterBlock[i].posY <= block->minPositionY){
+                        if(block->useReverseDirectionY){
+                            block->nextTickTriggerY = block->nextTickTriggerY + block->nextTickTriggerY;
+                            block->directionY = -block->directionY;
+                        } else{
+                            block->directionY = 0;
+                        }
+                    }
+                    if(clusterBlock[i].posY + block->directionY >= block->maxPostionY) {
+                        clusterBlock[i].posY += block->maxPostionY - clusterBlock[i].posY;
+                    } else {
+                        clusterBlock[i].posY += block->directionY;
+                    }
+                }
+            } 
 
+            // * Increment Count
             if(
-                (block->directionFrom == FROM_LEFT && clusterBlock[i].posX > g_screenWidth) ||
-                (block->directionFrom == FROM_RIGHT && clusterBlock[i].posX < 0)
+                (block->directionX == FROM_LEFT && clusterBlock[i].posX > g_screenWidth) ||
+                (block->directionX == FROM_RIGHT && clusterBlock[i].posX < 0)
             ){
-                ++countVisible;
+                ++countOutOfScope;
             } 
         }
 
         // * call destructor when cluster out of scope
-        if(countVisible == block->quantity){
+        if(countOutOfScope == block->quantity){
             m_bOutOfScope = true;
             this->~FloatingBlock();
         }
@@ -182,6 +215,7 @@ private:
     BaseCluster *clusterBlock;
     
     int positionX;
+    long double tickReveal;
 };
 
 /*
@@ -281,7 +315,7 @@ public:
 
         posY += 1 * velocityY;
         // ?
-        // this->onCheckingCollision();
+        this->onCheckingCollision();
    }
 
    void onListenKeyPressed()
@@ -389,7 +423,7 @@ public:
 
         // * Update
         this->computeTicks();
-        this->checkTickForRevealingBlock();
+        this->appendBlockBasedOnTicks();
         g_bRunning = player->isPlaying();
     }
 
@@ -409,19 +443,11 @@ public:
     {   
         //TODO
         // Need to popup dialog alert not eligible dimension here
-        if(g_windowHeight < g_screenWidth * 0.2) {
-
+        if(g_windowWidth <= 100 || g_windowHeight < g_screenWidth * 0.2) {
+            g_bRunning = false;
         }
 
-        if(g_windowWidth <= 80){
-            TIMEOUT = 55;
-            slope = 1;
-            spaceBetween = 10;
-        } else if(g_windowWidth <= 100){
-            TIMEOUT = 50;
-            slope = 1;
-            spaceBetween = 10;
-        } else if(g_windowWidth <= 120){
+        if(g_windowWidth <= 120){
             TIMEOUT = 45;
             slope = 2;
             spaceBetween = 10;
@@ -444,17 +470,46 @@ public:
     {
         player = new Player('#');
         board = new Board();
-        // g_listBlock.push_back(FloatingBlock(&g_listShape[BLOCK_LEFT_TWO_1]));
     }
 
-    void assignBlockShape(int typeBlock, char chr, int quantity, int directionFrom, int additionX, int additionY, int positionY)
-    {
+    void assignBlockShape(
+        int typeBlock, 
+        char chr, 
+        int quantity, 
+        int directionX, 
+        int multiplicationX, 
+        int multiplicationY, 
+        int initPositionY
+    ) {
         g_listShape[typeBlock].chr = chr;
         g_listShape[typeBlock].quantity = quantity;
-        g_listShape[typeBlock].directionFrom = directionFrom;
-        g_listShape[typeBlock].additionX = additionX;
-        g_listShape[typeBlock].additionY = additionY;
-        g_listShape[typeBlock].positionY = positionY;
+        g_listShape[typeBlock].directionX = directionX;
+        g_listShape[typeBlock].multiplicationX = multiplicationX;
+        g_listShape[typeBlock].multiplicationY = multiplicationY;
+        g_listShape[typeBlock].initPositionY = initPositionY;
+    }
+
+    void assignBlockShapeWithAnimation(
+        int typeBlock, 
+        char chr, 
+        int quantity, 
+        int directionX, 
+        int initPositionY, 
+        int nextTickTriggerY, 
+        int minPositionY, 
+        int maxPostionY, 
+        int directionY,
+        bool useReverseDirectionY
+    ) {
+        g_listShape[typeBlock].chr = chr;
+        g_listShape[typeBlock].quantity = quantity;
+        g_listShape[typeBlock].directionX = directionX;
+        g_listShape[typeBlock].initPositionY = initPositionY;
+        g_listShape[typeBlock].nextTickTriggerY = nextTickTriggerY;
+        g_listShape[typeBlock].minPositionY = minPositionY;
+        g_listShape[typeBlock].maxPostionY = maxPostionY;
+        g_listShape[typeBlock].directionY = directionY;
+        g_listShape[typeBlock].useReverseDirectionY = useReverseDirectionY;
     }
 
     void assignSequenceShape(long double ticks, int typeBlock)
@@ -463,7 +518,7 @@ public:
         sequenceRevealBlock[ticks].bRevealed = false;
     }
 
-    void checkTickForRevealingBlock()
+    void appendBlockBasedOnTicks()
     {
         // ?
         mvprintw(g_screenHeight + 2, 5, std::to_string((long)current_ticks).c_str());
@@ -471,12 +526,10 @@ public:
         bool bRevealed = sequenceRevealBlock[(long)current_ticks].bRevealed;
         std::vector<int> vt = sequenceRevealBlock[(long)current_ticks].listBlock;
 
-        if(vt.size() == 0 || bRevealed){
-            return;
-        }
+        if(vt.size() == 0 || bRevealed) return;
 
-        for (std::vector<int>::iterator it = vt.begin(); it != vt.end(); it++){
-            g_listBlock.push_back(FloatingBlock(&g_listShape[*it]));
+        for (std::vector<int>::iterator tick = vt.begin(); tick != vt.end(); tick++){
+            g_listBlock.push_back(FloatingBlock(&g_listShape[*tick], (long)current_ticks));
         }
 
         sequenceRevealBlock[(long)current_ticks].bRevealed = true;
@@ -486,14 +539,14 @@ public:
     {
         // TWO
         this->assignBlockShape(BLOCK_LEFT_TWO_1, '^', 2, FROM_LEFT, 0, 3, slope + 3);
-        this->assignBlockShape(BLOCK_RIGHT_TWO_1, '^', 2, FROM_RIGHT, 0, 3, slope + 3);
         this->assignBlockShape(BLOCK_LEFT_TWO_2, '^', 2, FROM_LEFT, 0, 4, slope + 1);
+        this->assignBlockShape(BLOCK_RIGHT_TWO_1, '^', 2, FROM_RIGHT, 0, 3, slope + 3);
         this->assignBlockShape(BLOCK_RIGHT_TWO_2, '^', 2, FROM_RIGHT, 0, 4, slope + 1);
 
         // THREE
         this->assignBlockShape(BLOCK_LEFT_THREE_1, '^', 3, FROM_LEFT, 2, 0, slope + 1);
-        this->assignBlockShape(BLOCK_RIGHT_THREE_1, '^', 3, FROM_RIGHT, 2, 0, slope + 1);
         this->assignBlockShape(BLOCK_LEFT_THREE_2, '^', 3, FROM_LEFT, 2, 0, g_screenHeight - (slope + 1));
+        this->assignBlockShape(BLOCK_RIGHT_THREE_1, '^', 3, FROM_RIGHT, 2, 0, slope + 1);
         this->assignBlockShape(BLOCK_RIGHT_THREE_2, '^', 3, FROM_RIGHT, 2, 0, g_screenHeight - (slope + 1));
 
         // FOUR
@@ -502,14 +555,49 @@ public:
         this->assignBlockShape(BLOCK_RIGHT_FOUR_1, '^', 4, FROM_RIGHT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
         this->assignBlockShape(BLOCK_RIGHT_FOUR_2, '^', 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
 
+        // ANIMATION
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_1, '^', 1, FROM_LEFT, slope + 3, 1, 0 + (THRESHOLD * 2), g_screenHeight - (THRESHOLD * 2), 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_2, '^', 1, FROM_LEFT, slope + 3, 1, 0 + (THRESHOLD * 2), g_screenHeight - (THRESHOLD * 2), 1, true);
     }
 
     void initializeSequenceRevealShape()
     {
+        // this->assignSequenceShape(1, BLOCK_LEFT_ONE_ANIMATION_2);
+
+        this->assignSequenceShape(0, BLOCK_LEFT_TWO_1);
         this->assignSequenceShape(1, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(2, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(3, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(5, BLOCK_LEFT_THREE_1);
+        this->assignSequenceShape(4, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(7, BLOCK_RIGHT_THREE_2);
+        this->assignSequenceShape(8, BLOCK_LEFT_THREE_1);
+        this->assignSequenceShape(11, BLOCK_RIGHT_TWO_1);
+        this->assignSequenceShape(12, BLOCK_RIGHT_TWO_1);
+        this->assignSequenceShape(13, BLOCK_LEFT_FOUR_1);
+        this->assignSequenceShape(14, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(17, BLOCK_RIGHT_THREE_2);
+        this->assignSequenceShape(17, BLOCK_RIGHT_THREE_1);
+        this->assignSequenceShape(19, BLOCK_LEFT_TWO_2);
+        this->assignSequenceShape(20, BLOCK_LEFT_THREE_1);
+        this->assignSequenceShape(22, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(24, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(26, BLOCK_LEFT_TWO_2);
+        this->assignSequenceShape(26, BLOCK_LEFT_TWO_2);
+        this->assignSequenceShape(29, BLOCK_LEFT_TWO_1);
+        this->assignSequenceShape(30, BLOCK_RIGHT_TWO_1);
+        this->assignSequenceShape(31, BLOCK_RIGHT_TWO_2);
+        this->assignSequenceShape(34, BLOCK_LEFT_FOUR_1);
+        this->assignSequenceShape(36, BLOCK_LEFT_FOUR_2);
+        this->assignSequenceShape(39, BLOCK_RIGHT_FOUR_1);
+        this->assignSequenceShape(41, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(43, BLOCK_RIGHT_TWO_2);
+        this->assignSequenceShape(43, BLOCK_LEFT_TWO_1);
+        this->assignSequenceShape(45, BLOCK_RIGHT_TWO_1);
+        this->assignSequenceShape(45, BLOCK_LEFT_TWO_2);
+        this->assignSequenceShape(47, BLOCK_LEFT_FOUR_2);
+        this->assignSequenceShape(49, BLOCK_LEFT_FOUR_1);
+        this->assignSequenceShape(52, BLOCK_RIGHT_FOUR_2);
+        this->assignSequenceShape(54, BLOCK_RIGHT_FOUR_1);
+        this->assignSequenceShape(57, BLOCK_LEFT_TWO_1);
+        this->assignSequenceShape(57, BLOCK_RIGHT_TWO_1);
     }
 
 private:
