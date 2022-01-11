@@ -1,22 +1,53 @@
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
-#include <unistd.h>
 #include <ncurses.h>
 #include <map>
 #include<string>
 #include <unordered_map>
+#include <unistd.h>
 
 #define THRESHOLD 2
 #define SECOND 1000
+#define PLAYER_CHARACTER '#'
+#define TOTAL_MENU 4
 
-unsigned short int g_windowWidth, g_windowHeight;
-unsigned short int g_screenWidth, g_screenHeight;
+namespace STATUS
+{
+    const std::string GAME_MENU_START = "GAME_MENU_START";
+    const std::string GAME_ASK_PLAY_AGAIN = "GAME_ASK_PLAY_AGAIN";
+    const std::string GAME_PLAYING = "GAME_PLAYING";
+    const std::string GAME_SELECT_LEVEL = "GAME_SELECT_LEVEL";
+    const std::string GAME_BEST_SCORE = "GAME_BEST_SCORE";
+    const std::string GAME_NOT_MEET_DIMENSION_REQUIREMENT = "GAME_NOT_MEET_DIMENSION_REQUIREMENT";
+    const std::string GAME_STOP = "GAME_STOP";
+} 
+
+namespace LEVEL
+{
+    const int EASY = 1;
+    const int NORMAL = 2;
+    const int HARD = 3;
+}
+
+namespace MENU
+{
+    const int START_GAME = 1;
+    const int LEVEL = 2;
+    const int BEST_SCORE = 3;
+    const int EXIT = 4;
+}
+
+uint16_t g_windowWidth, g_windowHeight;
+uint16_t g_screenWidth, g_screenHeight;
+uint16_t TIMEOUT;
 short int keyPressed;
-unsigned short int TIMEOUT;
-int slope, spaceBetween;
-
+uint8_t slope, spaceBetween;
 long double current_ticks = 0;
+uint8_t index_menu_selected = 1; // min 1
+uint8_t level_selected = LEVEL::NORMAL;
+uint16_t score;
+std::string listRandomChar[5] = { "~", "-", "=", "*", "+"};
 
 enum : int {
     ASCEND_SLOPE = -1,
@@ -56,15 +87,48 @@ enum : int {
     BLOCK_RIGHT_FOUR_2,
 
    /*
-    *   @
-    *   
-    * 
-    *     
-    */
-    BLOCK_LEFT_ONE_ANIMATION_1,
-    BLOCK_LEFT_ONE_ANIMATION_2,
-    BLOCK_RIGHT_ONE_ANIMATION_1,
-    BLOCK_RIGHT_ONE_ANIMATION_2,
+    *   @                     @
+    *     ~                 ~
+    *       ~             ~
+    *         ~         ~
+    *           @ - - @
+    */          
+    BLOCK_LEFT_ONE_ANIMATION_REVERSE_1,
+    BLOCK_LEFT_ONE_ANIMATION_REVERSE_2,
+    BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1,
+    BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2,
+
+    BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1,
+    BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2,
+    BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1,
+    BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2,
+};
+
+int all_kind_of_blocks[20] = { 
+    BLOCK_LEFT_TWO_1,
+    BLOCK_RIGHT_TWO_1,
+    BLOCK_LEFT_TWO_2,
+    BLOCK_RIGHT_TWO_2,
+
+    BLOCK_LEFT_THREE_1,
+    BLOCK_RIGHT_THREE_1,
+    BLOCK_LEFT_THREE_2,
+    BLOCK_RIGHT_THREE_2,
+
+    BLOCK_LEFT_FOUR_1,
+    BLOCK_LEFT_FOUR_2,
+    BLOCK_RIGHT_FOUR_1,
+    BLOCK_RIGHT_FOUR_2,
+
+    BLOCK_LEFT_ONE_ANIMATION_REVERSE_1,
+    BLOCK_LEFT_ONE_ANIMATION_REVERSE_2,
+    BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1,
+    BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2,
+
+    BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1,
+    BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2,
+    BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1,
+    BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2,
 };
 
 /*
@@ -113,9 +177,7 @@ public:
         this->init();
     }
 
-    ~FloatingBlock()
-    {
-    }
+    ~FloatingBlock() {}
 
     void init()
     {   
@@ -142,7 +204,6 @@ public:
             // * Render
             if(clusterBlock[i].bVisible){
                 mvwaddch(stdscr, clusterBlock[i].posY, clusterBlock[i].posX, block->chr);
-                wmove(stdscr, g_screenHeight, g_screenWidth);
             }
 
             // * Bounding checking 
@@ -162,6 +223,7 @@ public:
             
             if(block->nextTickTriggerY > 0){
                 if((long)current_ticks - tickReveal == block->nextTickTriggerY){
+                    clusterBlock[i].posY += block->directionY;
                     if(clusterBlock[i].posY >= block->maxPostionY || clusterBlock[i].posY <= block->minPositionY){
                         if(block->useReverseDirectionY){
                             block->nextTickTriggerY = block->nextTickTriggerY + block->nextTickTriggerY;
@@ -169,12 +231,7 @@ public:
                         } else{
                             block->directionY = 0;
                         }
-                    }
-                    if(clusterBlock[i].posY + block->directionY >= block->maxPostionY) {
-                        clusterBlock[i].posY += block->maxPostionY - clusterBlock[i].posY;
-                    } else {
-                        clusterBlock[i].posY += block->directionY;
-                    }
+                    } 
                 }
             } 
 
@@ -218,43 +275,28 @@ private:
     long double tickReveal;
 };
 
-/*
- * Global variables
- */
-std::unordered_map<int, Block> g_listShape;
-std::vector<FloatingBlock> g_listBlock;
-std::unordered_map<long double, BaseSequenceBlock> sequenceRevealBlock;
-class Board : public Entity
+class Context
 {
 public:
 
-    Board()
-    {
+    Context() {}
 
+    ~Context() {}
+
+    void drawPlayground()
+    {
+        printw("Up & Down Game");
+        printw("\n");
+
+        this->drawRectangle(g_screenHeight, g_screenWidth, "*");
     }
 
-    ~Board()
+    void drawRectangle(const int height, const int width, const std::string str)
     {
-        this->init();
-    }
-
-    void init()
-    {
-
-    }
-
-    void update()
-    {
-        this->drawIntro();
-        this->drawBoard();
-    }
-
-    void drawBoard()
-    {
-        for(int i = 0; i < g_screenHeight; ++i){
-           for(int j = 0; j < g_screenWidth; ++j){
-               if(i == 0 || i == g_screenHeight - 1 || j == 0 || j == g_screenWidth - 1){
-                   printw("*");
+        for(int i = 0; i < height; ++i){
+           for(int j = 0; j < width; ++j){
+               if(i == 0 || i == height - 1 || j == 0 || j == width - 1){
+                   printw(str.c_str());
                } else {
                    printw(" ");
                }
@@ -263,10 +305,128 @@ public:
        }
     }
 
-    void drawIntro()
+    void drawMenuStartGame()
     {
-        printw("Welcome to the Game");
-        printw("\n");
+        usleep(99999);
+        u_int8_t heightBox = 13;
+        u_int8_t widthBox = 50;
+        std::string titleMenu = "Start Game";
+        std::string level = "Level";
+        std::string bestScore = "Best Score";
+        std::string exit = "Exit";
+        switch(index_menu_selected){
+            case MENU::START_GAME:
+                titleMenu += " *";
+                break;
+            case MENU::LEVEL:
+                level += " *";
+                break;
+            case MENU::BEST_SCORE:
+                bestScore += " *";
+                break;
+            case MENU::EXIT:
+                exit += " *";
+                break;
+        }
+        
+        this->drawMenuBox(heightBox, widthBox);
+        mvprintw(2, (widthBox / 2) - 3, "Up & Down");
+        mvprintw(4, (widthBox / 2) - 4, titleMenu.c_str());
+        mvprintw(6, (widthBox / 2) - 2, level.c_str());
+        mvprintw(8, (widthBox / 2) - 4, bestScore.c_str());
+        mvprintw(10, (widthBox / 2) - 1, exit.c_str());
+    }
+
+    void drawMenuPlayAgain()
+    {
+        usleep(99999);
+        u_int8_t heightBox = 17;
+        u_int8_t widthBox = 50;
+        std::string titleMenu = "Play Again";
+        std::string level = "Level";
+        std::string bestScore = "Best Score";
+        std::string exit = "Exit";
+        switch(index_menu_selected){
+            case MENU::START_GAME:
+                titleMenu += " *";
+                break;
+            case MENU::LEVEL:
+                level += " *";
+                break;
+            case MENU::BEST_SCORE:
+                bestScore += " *";
+                break;
+            case MENU::EXIT:
+                exit += " *";
+                break;
+        }
+
+        this->drawMenuBox(heightBox, widthBox);
+        mvprintw(2, (widthBox / 2) - 3, "Up & Down");
+        mvprintw(4, (widthBox / 2) - 4, "Your Score");
+        mvprintw(6, (widthBox / 2), std::to_string(score).c_str());
+        mvprintw(8, (widthBox / 2) - 4, titleMenu.c_str());
+        mvprintw(10, (widthBox / 2) - 2, level.c_str());
+        mvprintw(12, (widthBox / 2) - 4, bestScore.c_str());
+        mvprintw(14, (widthBox / 2) - 1, exit.c_str());
+    }
+
+    void drawMenuSelectLevel()
+    {
+        usleep(99999);
+        u_int8_t heightBox = 15;
+        u_int8_t widthBox = 50;
+        std::string titleMenu = "Select Level";
+        std::string easy = "Easy";
+        std::string normal = "Normal";
+        std::string hard = "Hard";
+        std::string back = "Back";
+        switch(index_menu_selected){
+            case LEVEL::EASY:
+                easy += " *";
+                break;
+            case LEVEL::NORMAL:
+                normal += " *";
+                break;
+            case LEVEL::HARD:
+                hard += " *";
+                break;
+            case MENU::EXIT:
+                back += " *";
+                break;
+        }
+
+        switch(level_selected){
+            case LEVEL::EASY:
+                easy = "@ " + easy;
+                break;
+            case LEVEL::NORMAL:
+                normal = "@ " + normal;
+                break;
+            case LEVEL::HARD:
+                hard = "@ " + hard;
+                break;
+        }
+
+        this->drawMenuBox(heightBox, widthBox);
+        mvprintw(2, (widthBox / 2) - 3, "Up & Down");
+        mvprintw(4, (widthBox / 2) - 4, titleMenu.c_str());
+        mvprintw(6, (widthBox / 2) - 1, easy.c_str());
+        mvprintw(8, (widthBox / 2) - 2, normal.c_str());
+        mvprintw(10, (widthBox / 2) - 1, hard.c_str());
+        mvprintw(12, (widthBox / 2) - 1, back.c_str());
+    }
+
+    void drawMenuBox(const u_int8_t heightBox, const u_int8_t widthBox)
+    {
+        uint8_t lenListChar = sizeof(listRandomChar)/sizeof(listRandomChar[0]);
+        uint8_t randomIndex = std::rand() % lenListChar;
+        this->drawRectangle(heightBox, widthBox, listRandomChar[randomIndex]);
+    }
+
+    void drawAlertNotMetRequirement()
+    {
+        printw("Ouch~ Looks like your Terminal/CMD display screen isn't wide enough. Let's try to enlarge the screen and run it again.");
     }
 
 private:
@@ -277,32 +437,27 @@ class Player : public Entity
 {
 public:
 
-   Player(char chr)
-   : chr(chr), g_isPlaying(true), velocityX(0), velocityY(1), posX((g_screenWidth + g_screenHeight) / 2), posY(THRESHOLD)
-   {
-       this->init();
-   }
+    Player(char chr)
+    : chr(chr), velocityX(0), velocityY(1), posY(THRESHOLD)
+    {
+        int randomX = (0 + (THRESHOLD * 3)) + (std::rand() % ( (g_screenWidth - (THRESHOLD * 3)) - (0 + (THRESHOLD * 3)) + 1));
+        posX = randomX;
+        this->init();
+    }
 
-   ~Player()
-   {
-   }
+    ~Player()
+    {
+    }
 
-   bool isPlaying()
-   {
-       return g_isPlaying;
-   }
+    void init()
+    {
+    }
 
-   void init()
-   {
-   }
-
-   void update()
-   {    
+    void update()
+    {    
         // * Render 
         mvwaddch(stdscr, posY, posX, chr);
-        wmove(stdscr, g_screenHeight, g_screenWidth);
 
-        this->onListenKeyPressed();
         // * Reverse direction Y
         if(posY + (1 * velocityY) < THRESHOLD || (posY > g_screenHeight - THRESHOLD)){
             velocityY = -velocityY;
@@ -314,25 +469,16 @@ public:
         }
 
         posY += 1 * velocityY;
-        // ?
-        this->onCheckingCollision();
    }
 
-   void onListenKeyPressed()
+   int getPosX()
    {
-        switch(keyPressed)
-        {
-            case KEY_LEFT:
-                this->onMoveLeft();
-                break;
-            case KEY_RIGHT:
-                this->onMoveRight();
-                break;
-            case KEY_UP:
-            case KEY_DOWN:
-                this->onStand();
-                break;
-        }
+       return posX;
+   }
+
+   int getPosY()
+   {
+       return posY;
    }
 
    void onMoveLeft()
@@ -350,9 +496,156 @@ public:
        velocityX = 0;
    }
 
-   void onCheckingCollision()
-   {
-       for (std::vector<FloatingBlock>::iterator it = g_listBlock.begin(); it != g_listBlock.end(); it++){
+private:
+    int posX, posY;
+    int velocityX, velocityY;
+    char chr;
+};
+
+class Core : public Entity
+{
+public:
+
+    Core(std::string g_sCoreStatus)
+    : g_sCoreStatus(g_sCoreStatus)
+    {}
+
+    ~Core() {}
+
+    std::string getStatusGame()
+    {
+        return g_sCoreStatus;
+    }
+
+    void init()
+    {
+        this->getTerminalDimension();
+        this->initializeReponsiveMetrics();
+        this->initializeBlockShape();
+        this->initializeSequenceRevealShape();
+        this->initializeInstance();
+    }
+
+    void update()
+    {   
+        // * Listen key pressed
+        this->onListenKeyPressed();
+        
+        if(g_sCoreStatus == STATUS::GAME_MENU_START){
+            context->drawMenuStartGame();
+        } else if(g_sCoreStatus == STATUS::GAME_ASK_PLAY_AGAIN){
+            context->drawMenuPlayAgain();
+        } else if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL){
+            context->drawMenuSelectLevel();
+        } else if(g_sCoreStatus == STATUS::GAME_BEST_SCORE){
+            // context->drawMenuPlayAgain();
+        } else if(g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT){
+            context->drawAlertNotMetRequirement();
+        } else if(g_sCoreStatus == STATUS::GAME_PLAYING){
+            // * Render
+            context->drawPlayground();
+            player->update();
+            for (std::vector<FloatingBlock>::iterator block = listFloatingBlock.begin(); block != listFloatingBlock.end(); block++){
+                if(!block->bOutOfScope()){
+                    block->update();
+                }
+            }      
+
+            // * Update
+            this->computeTicks();
+            // ?
+            this->appendBlockBasedOnTicks();
+            this->checkingPlayerCollision();
+        } 
+        // * Move curse out of screen
+        wmove(stdscr, g_windowHeight - THRESHOLD, g_windowWidth - THRESHOLD);
+    }
+
+private:
+    Player* player;
+    Context* context;
+    std::string g_sCoreStatus;
+    int marked_tick_append_last_block;
+
+    std::unordered_map<int, Block> listShape;
+    std::unordered_map<long double, BaseSequenceBlock> sequenceRevealBlock;
+    std::vector<FloatingBlock> listFloatingBlock;
+
+    void onListenKeyPressed()
+    {
+        bool isInMenuScreen = 
+            g_sCoreStatus == STATUS::GAME_MENU_START || 
+            g_sCoreStatus == STATUS::GAME_SELECT_LEVEL ||
+            g_sCoreStatus == STATUS::GAME_BEST_SCORE ||
+            g_sCoreStatus == STATUS::GAME_ASK_PLAY_AGAIN;
+
+        switch(keyPressed){
+            case KEY_LEFT:
+                player->onMoveLeft();
+                break;
+            case KEY_RIGHT:
+                player->onMoveRight();
+                break;
+            case KEY_UP:
+                if(isInMenuScreen){
+                    if(index_menu_selected - 1 < 1) {
+                        index_menu_selected = TOTAL_MENU;
+                    } else {
+                        --index_menu_selected;
+                    }
+                } else if(g_sCoreStatus == STATUS::GAME_PLAYING){
+                    player->onStand();
+                }
+                break;
+            case KEY_DOWN:
+                if(isInMenuScreen){
+                    if(index_menu_selected + 1 > TOTAL_MENU) {
+                        index_menu_selected = 1;
+                    } else {
+                        ++index_menu_selected;
+                    }
+                } else if(g_sCoreStatus == STATUS::GAME_PLAYING){
+                    player->onStand();
+                }
+                break;
+            case 10: // ENTER
+                if(isInMenuScreen){
+                    if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL){
+                        if(index_menu_selected != MENU::EXIT){
+                            level_selected = index_menu_selected;
+                        }
+                        index_menu_selected = MENU::LEVEL;
+                        g_sCoreStatus = STATUS::GAME_MENU_START;
+                    } else {
+                        switch(index_menu_selected){
+                            case MENU::START_GAME:
+                                g_sCoreStatus = STATUS::GAME_PLAYING;
+                                break;
+                            case MENU::LEVEL:
+                                index_menu_selected = level_selected;
+                                g_sCoreStatus = STATUS::GAME_SELECT_LEVEL;
+                                break;
+                            case MENU::BEST_SCORE:
+                                g_sCoreStatus = STATUS::GAME_BEST_SCORE;
+                                break;
+                            case MENU::EXIT:
+                                g_sCoreStatus = STATUS::GAME_STOP;
+                                break;
+                        }
+                    }
+                }
+                break;
+            default:
+                if(keyPressed != -1 && g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT){
+                    g_sCoreStatus = STATUS::GAME_STOP;
+                }
+        }
+    }
+
+    void checkingPlayerCollision()
+    {
+        bool bCollision = false;
+        for (std::vector<FloatingBlock>::iterator it = listFloatingBlock.begin(); it != listFloatingBlock.end(); it++){
             BaseCluster* cluster = it->getCluster();
             Block* block = it->getBlock();
             
@@ -362,69 +655,26 @@ public:
 
             for(int i = 0; i < block->quantity; ++i){
                 if(
-                    (posX == cluster[i].posX + 1 && posY == cluster[i].posY + 1) || 
-                    (posX == cluster[i].posX - 1 && posY == cluster[i].posY - 1) || 
-                    (posX == cluster[i].posX + 1 && posY == cluster[i].posY) ||
-                    (posX == cluster[i].posX - 1 && posY == cluster[i].posY) ||
-                    (posX == cluster[i].posX && posY == cluster[i].posY + 1) ||
-                    (posX == cluster[i].posX && posY == cluster[i].posY - 1) ||
-                    (posX == cluster[i].posX && posY == cluster[i].posY)
+                    (player->getPosX() == cluster[i].posX + 1 && player->getPosY() == cluster[i].posY + 1) || 
+                    (player->getPosX() == cluster[i].posX - 1 && player->getPosY() == cluster[i].posY - 1) || 
+                    (player->getPosX() == cluster[i].posX + 1 && player->getPosY() == cluster[i].posY) ||
+                    (player->getPosX() == cluster[i].posX - 1 && player->getPosY() == cluster[i].posY) ||
+                    (player->getPosX() == cluster[i].posX && player->getPosY() == cluster[i].posY + 1) ||
+                    (player->getPosX() == cluster[i].posX && player->getPosY() == cluster[i].posY - 1) ||
+                    (player->getPosX() == cluster[i].posX && player->getPosY() == cluster[i].posY)
                 ) {
-                    g_isPlaying = false;
+                    g_sCoreStatus = STATUS::GAME_ASK_PLAY_AGAIN;
+                    bCollision = true;
+                    break;
                 }
             }
-        }
-   }
 
-private:
-    bool g_isPlaying;
-    int velocityX, velocityY;
-    int posX, posY;
-    char chr;
-};
-
-class Core : public Entity
-{
-public:
-
-    Core()
-    : g_bRunning(true)
-    {
-    }
-
-    ~Core()
-    {
-    }
-
-    bool isRunning()
-    {
-        return g_bRunning;
-    }
-
-    void init()
-    {
-        this->getTerminalDimension();
-        this->getReponsiveMetrics();
-        this->initializeBlockShape();
-        this->initializeSequenceRevealShape();
-        this->initializeInstance();
-    }
-
-    void update()
-    {   
-        // * Render
-        board->update();
-        player->update();
-        for (std::vector<FloatingBlock>::iterator block = g_listBlock.begin(); block != g_listBlock.end(); block++){
-            if(!block->bOutOfScope()){
-                block->update();
-            }
+            if(bCollision) break;
         }
 
-        // * Update
-        this->computeTicks();
-        this->appendBlockBasedOnTicks();
-        g_bRunning = player->isPlaying();
+        if(bCollision) {
+            this->resetGame();
+        }
     }
 
     void getTerminalDimension()
@@ -439,12 +689,31 @@ public:
         current_ticks += (double) TIMEOUT / SECOND;
     }
 
-    void getReponsiveMetrics()
+    void resetTicks()
+    {
+        current_ticks = 0;
+    }
+
+    void resetGame()
+    {
+        player->~Player();
+        delete player;
+
+        listFloatingBlock.clear();
+        sequenceRevealBlock.clear();
+        listFloatingBlock.shrink_to_fit();
+
+        player = new Player(PLAYER_CHARACTER);
+        this->initializeSequenceRevealShape();
+
+        score = current_ticks;
+        this->resetTicks();
+    }
+
+    void initializeReponsiveMetrics()
     {   
-        //TODO
-        // Need to popup dialog alert not eligible dimension here
-        if(g_windowWidth <= 100 || g_windowHeight < g_screenWidth * 0.2) {
-            g_bRunning = false;
+        if(g_windowWidth <= 115 || g_windowHeight < g_screenWidth * 0.2) {
+            g_sCoreStatus = STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT;
         }
 
         if(g_windowWidth <= 120){
@@ -459,60 +728,68 @@ public:
             TIMEOUT = 30;
             slope = 4;
             spaceBetween = 20;
-        } else {
+        } else if(g_windowWidth <= 180){
             TIMEOUT = 25;
             slope = 4;
             spaceBetween = 20;
+        } else if(g_windowWidth <= 200){
+            TIMEOUT = 20;
+            slope = 4;
+            spaceBetween = 20;
+        } else {
+            TIMEOUT = 20;
+            slope = 6;
+            spaceBetween = 25;
         }
     }
 
     void initializeInstance()
     {
-        player = new Player('#');
-        board = new Board();
+        player = new Player(PLAYER_CHARACTER);
+        context = new Context();
     }
 
     void assignBlockShape(
-        int typeBlock, 
-        char chr, 
-        int quantity, 
-        int directionX, 
-        int multiplicationX, 
-        int multiplicationY, 
-        int initPositionY
+        const int typeBlock, 
+        const char chr, 
+        const int quantity, 
+        const int directionX, 
+        const int multiplicationX, 
+        const int multiplicationY, 
+        const int initPositionY
     ) {
-        g_listShape[typeBlock].chr = chr;
-        g_listShape[typeBlock].quantity = quantity;
-        g_listShape[typeBlock].directionX = directionX;
-        g_listShape[typeBlock].multiplicationX = multiplicationX;
-        g_listShape[typeBlock].multiplicationY = multiplicationY;
-        g_listShape[typeBlock].initPositionY = initPositionY;
+        listShape[typeBlock].chr = chr;
+        listShape[typeBlock].quantity = quantity;
+        listShape[typeBlock].directionX = directionX;
+        listShape[typeBlock].multiplicationX = multiplicationX;
+        listShape[typeBlock].multiplicationY = multiplicationY;
+        listShape[typeBlock].initPositionY = initPositionY;
     }
 
     void assignBlockShapeWithAnimation(
-        int typeBlock, 
-        char chr, 
-        int quantity, 
-        int directionX, 
-        int initPositionY, 
-        int nextTickTriggerY, 
-        int minPositionY, 
-        int maxPostionY, 
-        int directionY,
-        bool useReverseDirectionY
+        const int typeBlock, 
+        const char chr, 
+        const int quantity, 
+        const int directionX, 
+        const int initPositionY, 
+        const int nextTickTriggerY, 
+        const int minPositionY, 
+        const int maxPostionY, 
+        const int directionY,
+        const bool useReverseDirectionY
     ) {
-        g_listShape[typeBlock].chr = chr;
-        g_listShape[typeBlock].quantity = quantity;
-        g_listShape[typeBlock].directionX = directionX;
-        g_listShape[typeBlock].initPositionY = initPositionY;
-        g_listShape[typeBlock].nextTickTriggerY = nextTickTriggerY;
-        g_listShape[typeBlock].minPositionY = minPositionY;
-        g_listShape[typeBlock].maxPostionY = maxPostionY;
-        g_listShape[typeBlock].directionY = directionY;
-        g_listShape[typeBlock].useReverseDirectionY = useReverseDirectionY;
+        listShape[typeBlock].chr = chr;
+        listShape[typeBlock].quantity = quantity;
+        listShape[typeBlock].directionX = directionX;
+        listShape[typeBlock].initPositionY = initPositionY;
+        listShape[typeBlock].nextTickTriggerY = nextTickTriggerY;
+        listShape[typeBlock].minPositionY = minPositionY;
+        listShape[typeBlock].maxPostionY = maxPostionY;
+        listShape[typeBlock].directionY = directionY;
+        listShape[typeBlock].useReverseDirectionY = useReverseDirectionY;
     }
 
-    void assignSequenceShape(long double ticks, int typeBlock)
+    void assignSequenceShape(const long double ticks, const int typeBlock)
     {
         sequenceRevealBlock[ticks].listBlock.push_back(typeBlock);
         sequenceRevealBlock[ticks].bRevealed = false;
@@ -520,19 +797,37 @@ public:
 
     void appendBlockBasedOnTicks()
     {
-        // ?
         mvprintw(g_screenHeight + 2, 5, std::to_string((long)current_ticks).c_str());
 
-        bool bRevealed = sequenceRevealBlock[(long)current_ticks].bRevealed;
-        std::vector<int> vt = sequenceRevealBlock[(long)current_ticks].listBlock;
+        // bool bRevealed = sequenceRevealBlock[(long)current_ticks].bRevealed;
+        // std::vector<int> vt = sequenceRevealBlock[(long)current_ticks].listBlock;
 
-        if(vt.size() == 0 || bRevealed) return;
+        // if(vt.size() == 0 || bRevealed) return;
 
-        for (std::vector<int>::iterator tick = vt.begin(); tick != vt.end(); tick++){
-            g_listBlock.push_back(FloatingBlock(&g_listShape[*tick], (long)current_ticks));
+        // for (std::vector<int>::iterator tick = vt.begin(); tick != vt.end(); tick++){
+        //     listFloatingBlock.push_back(FloatingBlock(&listShape[*tick], (long)current_ticks));
+        // }
+
+        // sequenceRevealBlock[(long)current_ticks].bRevealed = true;
+
+        int8_t nextTickAppend = 0;
+        switch (level_selected) {
+            case LEVEL::EASY:
+                nextTickAppend = 3;
+                break;
+            case LEVEL::NORMAL:
+                nextTickAppend = 2;
+                break;
+            case LEVEL::HARD:
+                nextTickAppend = 1;
+                break;
         }
 
-        sequenceRevealBlock[(long)current_ticks].bRevealed = true;
+        if((long)current_ticks - marked_tick_append_last_block == nextTickAppend) {
+            uint8_t randomBlock = std::rand() % 20;
+            listFloatingBlock.push_back(FloatingBlock(&listShape[all_kind_of_blocks[randomBlock]], (long)current_ticks));
+            marked_tick_append_last_block = current_ticks;
+        }
     }
 
     void initializeBlockShape()
@@ -555,55 +850,22 @@ public:
         this->assignBlockShape(BLOCK_RIGHT_FOUR_1, '^', 4, FROM_RIGHT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
         this->assignBlockShape(BLOCK_RIGHT_FOUR_2, '^', 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
 
-        // ANIMATION
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_1, '^', 1, FROM_LEFT, slope + 3, 1, 0 + (THRESHOLD * 2), g_screenHeight - (THRESHOLD * 2), 1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_2, '^', 1, FROM_LEFT, slope + 3, 1, 0 + (THRESHOLD * 2), g_screenHeight - (THRESHOLD * 2), 1, true);
+        // ONE
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_LEFT, 4, 1, 4, g_screenHeight - 2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_LEFT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_RIGHT, 4, 1, 4, g_screenHeight - 2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_RIGHT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, true);
+
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_LEFT, 4, 1, 4, g_screenHeight - 2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_LEFT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_RIGHT, 4, 1, 4, g_screenHeight - 2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_RIGHT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, false);
     }
 
     void initializeSequenceRevealShape()
     {
-        // this->assignSequenceShape(1, BLOCK_LEFT_ONE_ANIMATION_2);
-
         this->assignSequenceShape(0, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(1, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(4, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(7, BLOCK_RIGHT_THREE_2);
-        this->assignSequenceShape(8, BLOCK_LEFT_THREE_1);
-        this->assignSequenceShape(11, BLOCK_RIGHT_TWO_1);
-        this->assignSequenceShape(12, BLOCK_RIGHT_TWO_1);
-        this->assignSequenceShape(13, BLOCK_LEFT_FOUR_1);
-        this->assignSequenceShape(14, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(17, BLOCK_RIGHT_THREE_2);
-        this->assignSequenceShape(17, BLOCK_RIGHT_THREE_1);
-        this->assignSequenceShape(19, BLOCK_LEFT_TWO_2);
-        this->assignSequenceShape(20, BLOCK_LEFT_THREE_1);
-        this->assignSequenceShape(22, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(24, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(26, BLOCK_LEFT_TWO_2);
-        this->assignSequenceShape(26, BLOCK_LEFT_TWO_2);
-        this->assignSequenceShape(29, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(30, BLOCK_RIGHT_TWO_1);
-        this->assignSequenceShape(31, BLOCK_RIGHT_TWO_2);
-        this->assignSequenceShape(34, BLOCK_LEFT_FOUR_1);
-        this->assignSequenceShape(36, BLOCK_LEFT_FOUR_2);
-        this->assignSequenceShape(39, BLOCK_RIGHT_FOUR_1);
-        this->assignSequenceShape(41, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(43, BLOCK_RIGHT_TWO_2);
-        this->assignSequenceShape(43, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(45, BLOCK_RIGHT_TWO_1);
-        this->assignSequenceShape(45, BLOCK_LEFT_TWO_2);
-        this->assignSequenceShape(47, BLOCK_LEFT_FOUR_2);
-        this->assignSequenceShape(49, BLOCK_LEFT_FOUR_1);
-        this->assignSequenceShape(52, BLOCK_RIGHT_FOUR_2);
-        this->assignSequenceShape(54, BLOCK_RIGHT_FOUR_1);
-        this->assignSequenceShape(57, BLOCK_LEFT_TWO_1);
-        this->assignSequenceShape(57, BLOCK_RIGHT_TWO_1);
     }
-
-private:
-    Player* player;
-    Board* board;
-    bool g_bRunning;
 };
 
 int main(int argc, const char * argv[]) 
@@ -612,17 +874,18 @@ int main(int argc, const char * argv[])
     cbreak();
     echo();
     keypad(stdscr, TRUE);
+    std::srand(time(NULL));
 
-    Core* core = new Core();
+    Core* core = new Core(STATUS::GAME_MENU_START);
     core->init();
 
     timeout(TIMEOUT);
 
-    while(core->isRunning()) {
+    while(core->getStatusGame() != STATUS::GAME_STOP) {
         keyPressed = getch();
         wclear(stdscr);
         core->update();
-        refresh();
+        wrefresh(stdscr);
     }
 
     endwin();
