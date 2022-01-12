@@ -2,15 +2,21 @@
 #include <stdlib.h>
 #include <vector>
 #include <ncurses.h>
-#include <map>
-#include<string>
+#include <string>
 #include <unordered_map>
+#include <time.h>
+#include <cstdlib>
+
+#ifdef _WIN32
+#include <Windows.h>
+#else
 #include <unistd.h>
+#endif
 
 #define THRESHOLD 2
 #define SECOND 1000
 #define PLAYER_CHARACTER '#'
-#define TOTAL_MENU 4
+#define TOTAL_MENU 3
 
 namespace STATUS
 {
@@ -18,7 +24,6 @@ namespace STATUS
     const std::string GAME_ASK_PLAY_AGAIN = "GAME_ASK_PLAY_AGAIN";
     const std::string GAME_PLAYING = "GAME_PLAYING";
     const std::string GAME_SELECT_LEVEL = "GAME_SELECT_LEVEL";
-    const std::string GAME_BEST_SCORE = "GAME_BEST_SCORE";
     const std::string GAME_NOT_MEET_DIMENSION_REQUIREMENT = "GAME_NOT_MEET_DIMENSION_REQUIREMENT";
     const std::string GAME_STOP = "GAME_STOP";
 } 
@@ -34,19 +39,18 @@ namespace MENU
 {
     const int START_GAME = 1;
     const int LEVEL = 2;
-    const int BEST_SCORE = 3;
-    const int EXIT = 4;
+    const int EXIT = 3;
 }
 
-uint16_t g_windowWidth, g_windowHeight;
-uint16_t g_screenWidth, g_screenHeight;
-uint16_t TIMEOUT;
+int g_windowWidth, g_windowHeight;
+int g_screenWidth, g_screenHeight;
 short int keyPressed;
-uint8_t slope, spaceBetween;
+int FPS;
+int slope, spaceBetween;
 long double current_ticks = 0;
-uint8_t index_menu_selected = 1; // min 1
-uint8_t level_selected = LEVEL::NORMAL;
-uint16_t score;
+int index_menu_selected = 1; // min 1
+int level_selected = LEVEL::NORMAL;
+int score;
 std::string listRandomChar[5] = { "~", "-", "=", "*", "+"};
 
 enum : int {
@@ -143,8 +147,6 @@ struct Block {
     int multiplicationY;
     int initPositionY;
     int nextTickTriggerY;
-    int minPositionY;
-    int maxPostionY;
     int directionY;
     bool useReverseDirectionY;
 } b;
@@ -224,9 +226,9 @@ public:
             if(block->nextTickTriggerY > 0){
                 if((long)current_ticks - tickReveal == block->nextTickTriggerY){
                     clusterBlock[i].posY += block->directionY;
-                    if(clusterBlock[i].posY >= block->maxPostionY || clusterBlock[i].posY <= block->minPositionY){
+                    if(clusterBlock[i].posY >= g_screenHeight * 0.8 || clusterBlock[i].posY <= g_screenHeight * 0.2){
                         if(block->useReverseDirectionY){
-                            block->nextTickTriggerY = block->nextTickTriggerY + block->nextTickTriggerY;
+                            block->nextTickTriggerY = ++block->nextTickTriggerY;
                             block->directionY = -block->directionY;
                         } else{
                             block->directionY = 0;
@@ -285,10 +287,15 @@ public:
 
     void drawPlayground()
     {
-        printw("Up & Down Game");
-        printw("\n");
-
         this->drawRectangle(g_screenHeight, g_screenWidth, "*");
+        printw("\n");
+        mvprintw(g_screenHeight + 1, g_screenWidth/2 - 7, "Up & Down Game");
+        mvprintw(g_screenHeight + 3, g_screenWidth/2 - 1, std::to_string((long)current_ticks).c_str());
+    }
+
+    void drawCurrentScore()
+    {
+        mvprintw(g_screenHeight + 5, 5, std::to_string((long)current_ticks).c_str());
     }
 
     void drawRectangle(const int height, const int width, const std::string str)
@@ -308,11 +315,10 @@ public:
     void drawMenuStartGame()
     {
         usleep(99999);
-        u_int8_t heightBox = 13;
+        u_int8_t heightBox = 11;
         u_int8_t widthBox = 50;
         std::string titleMenu = "Start Game";
         std::string level = "Level";
-        std::string bestScore = "Best Score";
         std::string exit = "Exit";
         switch(index_menu_selected){
             case MENU::START_GAME:
@@ -320,9 +326,6 @@ public:
                 break;
             case MENU::LEVEL:
                 level += " *";
-                break;
-            case MENU::BEST_SCORE:
-                bestScore += " *";
                 break;
             case MENU::EXIT:
                 exit += " *";
@@ -333,18 +336,16 @@ public:
         mvprintw(2, (widthBox / 2) - 3, "Up & Down");
         mvprintw(4, (widthBox / 2) - 4, titleMenu.c_str());
         mvprintw(6, (widthBox / 2) - 2, level.c_str());
-        mvprintw(8, (widthBox / 2) - 4, bestScore.c_str());
-        mvprintw(10, (widthBox / 2) - 1, exit.c_str());
+        mvprintw(8, (widthBox / 2) - 1, exit.c_str());
     }
 
     void drawMenuPlayAgain()
     {
         usleep(99999);
-        u_int8_t heightBox = 17;
+        u_int8_t heightBox = 15;
         u_int8_t widthBox = 50;
         std::string titleMenu = "Play Again";
         std::string level = "Level";
-        std::string bestScore = "Best Score";
         std::string exit = "Exit";
         switch(index_menu_selected){
             case MENU::START_GAME:
@@ -352,9 +353,6 @@ public:
                 break;
             case MENU::LEVEL:
                 level += " *";
-                break;
-            case MENU::BEST_SCORE:
-                bestScore += " *";
                 break;
             case MENU::EXIT:
                 exit += " *";
@@ -367,20 +365,18 @@ public:
         mvprintw(6, (widthBox / 2), std::to_string(score).c_str());
         mvprintw(8, (widthBox / 2) - 4, titleMenu.c_str());
         mvprintw(10, (widthBox / 2) - 2, level.c_str());
-        mvprintw(12, (widthBox / 2) - 4, bestScore.c_str());
-        mvprintw(14, (widthBox / 2) - 1, exit.c_str());
+        mvprintw(12, (widthBox / 2) - 1, exit.c_str());
     }
 
     void drawMenuSelectLevel()
     {
         usleep(99999);
-        u_int8_t heightBox = 15;
+        u_int8_t heightBox = 13;
         u_int8_t widthBox = 50;
         std::string titleMenu = "Select Level";
         std::string easy = "Easy";
         std::string normal = "Normal";
         std::string hard = "Hard";
-        std::string back = "Back";
         switch(index_menu_selected){
             case LEVEL::EASY:
                 easy += " *";
@@ -390,9 +386,6 @@ public:
                 break;
             case LEVEL::HARD:
                 hard += " *";
-                break;
-            case MENU::EXIT:
-                back += " *";
                 break;
         }
 
@@ -414,13 +407,12 @@ public:
         mvprintw(6, (widthBox / 2) - 1, easy.c_str());
         mvprintw(8, (widthBox / 2) - 2, normal.c_str());
         mvprintw(10, (widthBox / 2) - 1, hard.c_str());
-        mvprintw(12, (widthBox / 2) - 1, back.c_str());
     }
 
     void drawMenuBox(const u_int8_t heightBox, const u_int8_t widthBox)
     {
-        uint8_t lenListChar = sizeof(listRandomChar)/sizeof(listRandomChar[0]);
-        uint8_t randomIndex = std::rand() % lenListChar;
+        int lenListChar = sizeof(listRandomChar)/sizeof(listRandomChar[0]);
+        int randomIndex = std::rand() % lenListChar;
         this->drawRectangle(heightBox, widthBox, listRandomChar[randomIndex]);
     }
 
@@ -510,7 +502,18 @@ public:
     : g_sCoreStatus(g_sCoreStatus)
     {}
 
-    ~Core() {}
+    ~Core() {
+        player->~Player();
+        context->~Context();
+
+        delete player;
+        delete context;
+
+        listShape.clear();
+        sequenceRevealBlock.clear();
+        listFloatingBlock.clear();
+        listFloatingBlock.shrink_to_fit();
+    }
 
     std::string getStatusGame()
     {
@@ -537,8 +540,6 @@ public:
             context->drawMenuPlayAgain();
         } else if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL){
             context->drawMenuSelectLevel();
-        } else if(g_sCoreStatus == STATUS::GAME_BEST_SCORE){
-            // context->drawMenuPlayAgain();
         } else if(g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT){
             context->drawAlertNotMetRequirement();
         } else if(g_sCoreStatus == STATUS::GAME_PLAYING){
@@ -554,8 +555,10 @@ public:
             // * Update
             this->computeTicks();
             // ?
-            this->appendBlockBasedOnTicks();
+            // this->appendBlockBasedOnScript();
+            this->appendBlockAutomation();
             this->checkingPlayerCollision();
+            
         } 
         // * Move curse out of screen
         wmove(stdscr, g_windowHeight - THRESHOLD, g_windowWidth - THRESHOLD);
@@ -576,7 +579,6 @@ private:
         bool isInMenuScreen = 
             g_sCoreStatus == STATUS::GAME_MENU_START || 
             g_sCoreStatus == STATUS::GAME_SELECT_LEVEL ||
-            g_sCoreStatus == STATUS::GAME_BEST_SCORE ||
             g_sCoreStatus == STATUS::GAME_ASK_PLAY_AGAIN;
 
         switch(keyPressed){
@@ -611,9 +613,7 @@ private:
             case 10: // ENTER
                 if(isInMenuScreen){
                     if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL){
-                        if(index_menu_selected != MENU::EXIT){
-                            level_selected = index_menu_selected;
-                        }
+                        level_selected = index_menu_selected;
                         index_menu_selected = MENU::LEVEL;
                         g_sCoreStatus = STATUS::GAME_MENU_START;
                     } else {
@@ -624,9 +624,6 @@ private:
                             case MENU::LEVEL:
                                 index_menu_selected = level_selected;
                                 g_sCoreStatus = STATUS::GAME_SELECT_LEVEL;
-                                break;
-                            case MENU::BEST_SCORE:
-                                g_sCoreStatus = STATUS::GAME_BEST_SCORE;
                                 break;
                             case MENU::EXIT:
                                 g_sCoreStatus = STATUS::GAME_STOP;
@@ -673,6 +670,7 @@ private:
         }
 
         if(bCollision) {
+            player->update();
             this->resetGame();
         }
     }
@@ -686,12 +684,7 @@ private:
 
     void computeTicks()
     {
-        current_ticks += (double) TIMEOUT / SECOND;
-    }
-
-    void resetTicks()
-    {
-        current_ticks = 0;
+        current_ticks += (double) FPS / SECOND;
     }
 
     void resetGame()
@@ -704,10 +697,10 @@ private:
         listFloatingBlock.shrink_to_fit();
 
         player = new Player(PLAYER_CHARACTER);
-        this->initializeSequenceRevealShape();
 
         score = current_ticks;
-        this->resetTicks();
+        marked_tick_append_last_block = 0;
+        current_ticks = 0;
     }
 
     void initializeReponsiveMetrics()
@@ -717,27 +710,27 @@ private:
         }
 
         if(g_windowWidth <= 120){
-            TIMEOUT = 45;
+            FPS = 45;
             slope = 2;
             spaceBetween = 10;
         } else if(g_windowWidth <= 140){
-            TIMEOUT = 35;
+            FPS = 35;
             slope = 3;
             spaceBetween = 15;
         } else if(g_windowWidth <= 160){
-            TIMEOUT = 30;
+            FPS = 30;
             slope = 4;
             spaceBetween = 20;
         } else if(g_windowWidth <= 180){
-            TIMEOUT = 25;
+            FPS = 25;
             slope = 4;
             spaceBetween = 20;
         } else if(g_windowWidth <= 200){
-            TIMEOUT = 20;
+            FPS = 20;
             slope = 4;
             spaceBetween = 20;
         } else {
-            TIMEOUT = 20;
+            FPS = 20;
             slope = 6;
             spaceBetween = 25;
         }
@@ -771,20 +764,16 @@ private:
         const char chr, 
         const int quantity, 
         const int directionX, 
-        const int initPositionY, 
         const int nextTickTriggerY, 
-        const int minPositionY, 
-        const int maxPostionY, 
+        const int initPositionY, 
         const int directionY,
         const bool useReverseDirectionY
     ) {
         listShape[typeBlock].chr = chr;
         listShape[typeBlock].quantity = quantity;
         listShape[typeBlock].directionX = directionX;
-        listShape[typeBlock].initPositionY = initPositionY;
         listShape[typeBlock].nextTickTriggerY = nextTickTriggerY;
-        listShape[typeBlock].minPositionY = minPositionY;
-        listShape[typeBlock].maxPostionY = maxPostionY;
+        listShape[typeBlock].initPositionY = initPositionY;
         listShape[typeBlock].directionY = directionY;
         listShape[typeBlock].useReverseDirectionY = useReverseDirectionY;
     }
@@ -795,21 +784,22 @@ private:
         sequenceRevealBlock[ticks].bRevealed = false;
     }
 
-    void appendBlockBasedOnTicks()
+    void appendBlockBasedOnScript()
     {
-        mvprintw(g_screenHeight + 2, 5, std::to_string((long)current_ticks).c_str());
+        bool bRevealed = sequenceRevealBlock[(long)current_ticks].bRevealed;
+        std::vector<int> vt = sequenceRevealBlock[(long)current_ticks].listBlock;
 
-        // bool bRevealed = sequenceRevealBlock[(long)current_ticks].bRevealed;
-        // std::vector<int> vt = sequenceRevealBlock[(long)current_ticks].listBlock;
+        if(vt.size() == 0 || bRevealed) return;
 
-        // if(vt.size() == 0 || bRevealed) return;
+        for (std::vector<int>::iterator tick = vt.begin(); tick != vt.end(); tick++){
+            listFloatingBlock.push_back(FloatingBlock(&listShape[*tick], (long)current_ticks));
+        }
 
-        // for (std::vector<int>::iterator tick = vt.begin(); tick != vt.end(); tick++){
-        //     listFloatingBlock.push_back(FloatingBlock(&listShape[*tick], (long)current_ticks));
-        // }
+        sequenceRevealBlock[(long)current_ticks].bRevealed = true;
+    }
 
-        // sequenceRevealBlock[(long)current_ticks].bRevealed = true;
-
+    void appendBlockAutomation()
+    {
         int8_t nextTickAppend = 0;
         switch (level_selected) {
             case LEVEL::EASY:
@@ -824,7 +814,8 @@ private:
         }
 
         if((long)current_ticks - marked_tick_append_last_block == nextTickAppend) {
-            uint8_t randomBlock = std::rand() % 20;
+            int lenAllBlock = sizeof(all_kind_of_blocks)/sizeof(all_kind_of_blocks[0]);
+            int randomBlock = std::rand() % lenAllBlock;
             listFloatingBlock.push_back(FloatingBlock(&listShape[all_kind_of_blocks[randomBlock]], (long)current_ticks));
             marked_tick_append_last_block = current_ticks;
         }
@@ -851,20 +842,20 @@ private:
         this->assignBlockShape(BLOCK_RIGHT_FOUR_2, '^', 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
 
         // ONE
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_LEFT, 4, 1, 4, g_screenHeight - 2, 1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_LEFT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_RIGHT, 4, 1, 4, g_screenHeight - 2, 1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_RIGHT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, true);
 
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_LEFT, 4, 1, 4, g_screenHeight - 2, 1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_LEFT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_RIGHT, 4, 1, 4, g_screenHeight - 2, 1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_RIGHT, g_screenHeight - 2, 1, 4, g_screenHeight - 2, -1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, false);
     }
 
     void initializeSequenceRevealShape()
     {
-        this->assignSequenceShape(0, BLOCK_LEFT_TWO_1);
+        this->assignSequenceShape(0, BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2);
     }
 };
 
@@ -872,22 +863,30 @@ int main(int argc, const char * argv[])
 {
     initscr();			
     cbreak();
-    echo();
+    noecho();
     keypad(stdscr, TRUE);
+    nodelay(stdscr, TRUE);
+    scrollok(stdscr, TRUE);
+    curs_set(0);
     std::srand(time(NULL));
 
-    Core* core = new Core(STATUS::GAME_MENU_START);
+    Core* core = new Core(STATUS::GAME_ASK_PLAY_AGAIN);
     core->init();
-
-    timeout(TIMEOUT);
 
     while(core->getStatusGame() != STATUS::GAME_STOP) {
         keyPressed = getch();
-        wclear(stdscr);
+        usleep(FPS * 1000);
+        clear();
         core->update();
-        wrefresh(stdscr);
+        refresh();
     }
 
+    core->~Core();
+    delete core;
+
     endwin();
+    
+    return 0;
 }
+
 
