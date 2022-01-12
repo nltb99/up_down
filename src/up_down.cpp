@@ -184,7 +184,7 @@ public:
     void init()
     {   
         if(block->directionX == FROM_LEFT){
-            positionX = 0 - (spaceBetween * block->quantity) + (THRESHOLD * block->quantity);
+            positionX = 0 - ((spaceBetween * (block->quantity + 1)) + (THRESHOLD * block->quantity));
         } else if(block->directionX == FROM_RIGHT){
             positionX = g_screenWidth;
         }
@@ -855,7 +855,7 @@ private:
 
     void initializeSequenceRevealShape()
     {
-        this->assignSequenceShape(0, BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2);
+        this->assignSequenceShape(0, BLOCK_LEFT_ONE_ANIMATION_REVERSE_1);
     }
 };
 
