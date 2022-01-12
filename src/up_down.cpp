@@ -314,9 +314,14 @@ public:
 
     void drawMenuStartGame()
     {
+        #ifdef _WIN32
+        Sleep(99999 / 1000);
+        #else
         usleep(99999);
-        u_int8_t heightBox = 11;
-        u_int8_t widthBox = 50;
+        #endif
+
+        int heightBox = 11;
+        int widthBox = 50;
         std::string titleMenu = "Start Game";
         std::string level = "Level";
         std::string exit = "Exit";
@@ -341,9 +346,14 @@ public:
 
     void drawMenuPlayAgain()
     {
+        #ifdef _WIN32
+        Sleep(99999 / 1000);
+        #else
         usleep(99999);
-        u_int8_t heightBox = 15;
-        u_int8_t widthBox = 50;
+        #endif
+
+        int heightBox = 15;
+        int widthBox = 50;
         std::string titleMenu = "Play Again";
         std::string level = "Level";
         std::string exit = "Exit";
@@ -370,9 +380,14 @@ public:
 
     void drawMenuSelectLevel()
     {
+        #ifdef _WIN32
+        Sleep(99999 / 1000);
+        #else
         usleep(99999);
-        u_int8_t heightBox = 13;
-        u_int8_t widthBox = 50;
+        #endif
+
+        int heightBox = 13;
+        int widthBox = 50;
         std::string titleMenu = "Select Level";
         std::string easy = "Easy";
         std::string normal = "Normal";
@@ -409,7 +424,7 @@ public:
         mvprintw(10, (widthBox / 2) - 1, hard.c_str());
     }
 
-    void drawMenuBox(const u_int8_t heightBox, const u_int8_t widthBox)
+    void drawMenuBox(const int heightBox, const int widthBox)
     {
         int lenListChar = sizeof(listRandomChar)/sizeof(listRandomChar[0]);
         int randomIndex = std::rand() % lenListChar;
@@ -499,7 +514,7 @@ class Core : public Entity
 public:
 
     Core(std::string g_sCoreStatus)
-    : g_sCoreStatus(g_sCoreStatus)
+    : g_sCoreStatus(g_sCoreStatus), marked_tick_append_last_block(0)
     {}
 
     ~Core() {
@@ -875,7 +890,13 @@ int main(int argc, const char * argv[])
 
     while(core->getStatusGame() != STATUS::GAME_STOP) {
         keyPressed = getch();
+        
+        #ifdef _WIN32
+        Sleep(FPS);
+        #else
         usleep(FPS * 1000);
+        #endif
+
         clear();
         core->update();
         refresh();
