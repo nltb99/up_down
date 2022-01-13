@@ -28,7 +28,7 @@ These platforms are tested to be working.
 
 ### macOS
 
-    brew install up_down
+    brew tap nltb99/up_down && brew install up_down
 
 ### Linux
 
@@ -50,7 +50,7 @@ These platforms are tested to be working.
 
     * Window:
 
-            # Install MinGW compiler and follow these instruction
+            # Install MinGW compiler and follow these instructions
             - https://e-l.unifi.it/pluginfile.php/805205/mod_resource/content/0/ncurses%20installation%20-%20en.pdf
     
     * Linux:
