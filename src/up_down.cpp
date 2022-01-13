@@ -41,7 +41,7 @@
 
 #define THRESHOLD 2
 #define SECOND 1000
-#define PLAYER_CHARACTER '#'
+#define PLAYER_CHARACTER '@'
 #define TOTAL_MENU 3
 
 namespace STATUS
@@ -77,7 +77,8 @@ long double current_ticks = 0;
 int index_menu_selected = 1; // min 1
 int level_selected = LEVEL::NORMAL;
 int score;
-std::string listRandomChar[5] = { "~", "-", "=", "*", "+"};
+std::string listRandomCharMenu[5] = { "~", "-", "=", "*", "+"};
+char listRandomCharBlock[5] = { '#', '$', '%', '&', '+'};
 
 enum : int {
     ASCEND_SLOPE = -1,
@@ -166,7 +167,6 @@ int all_kind_of_blocks[20] = {
  *
  */
 struct Block {
-    char chr;
     int quantity;
     int directionX;
     int multiplicationX;
@@ -202,6 +202,9 @@ public:
     FloatingBlock(Block* block, long double tickReveal)
     : block(block), tickReveal(tickReveal), clusterBlock(new BaseCluster[block->quantity]), m_bOutOfScope(false)
     {
+        int lenListChar = sizeof(listRandomCharBlock)/sizeof(listRandomCharBlock[0]);
+        int randomIndex = std::rand() % lenListChar;
+        chr = listRandomCharBlock[randomIndex];
         this->init();
     }
 
@@ -231,7 +234,7 @@ public:
             
             // * Render
             if(clusterBlock[i].bVisible){
-                mvwaddch(stdscr, clusterBlock[i].posY, clusterBlock[i].posX, block->chr);
+                mvwaddch(stdscr, clusterBlock[i].posY, clusterBlock[i].posX, chr);
             }
 
             // * Bounding checking 
@@ -301,6 +304,7 @@ private:
     
     int positionX;
     long double tickReveal;
+    char chr;
 };
 
 class Context
@@ -452,9 +456,9 @@ public:
 
     void drawMenuBox(const int heightBox, const int widthBox)
     {
-        int lenListChar = sizeof(listRandomChar)/sizeof(listRandomChar[0]);
+        int lenListChar = sizeof(listRandomCharMenu)/sizeof(listRandomCharMenu[0]);
         int randomIndex = std::rand() % lenListChar;
-        this->drawRectangle(heightBox, widthBox, listRandomChar[randomIndex]);
+        this->drawRectangle(heightBox, widthBox, listRandomCharMenu[randomIndex]);
     }
 
     void drawAlertNotMetRequirement()
@@ -784,14 +788,12 @@ private:
 
     void assignBlockShape(
         const int typeBlock, 
-        const char chr, 
         const int quantity, 
         const int directionX, 
         const int multiplicationX, 
         const int multiplicationY, 
         const int initPositionY
     ) {
-        listShape[typeBlock].chr = chr;
         listShape[typeBlock].quantity = quantity;
         listShape[typeBlock].directionX = directionX;
         listShape[typeBlock].multiplicationX = multiplicationX;
@@ -801,7 +803,6 @@ private:
 
     void assignBlockShapeWithAnimation(
         const int typeBlock, 
-        const char chr, 
         const int quantity, 
         const int directionX, 
         const int nextTickTriggerY, 
@@ -809,7 +810,6 @@ private:
         const int directionY,
         const bool useReverseDirectionY
     ) {
-        listShape[typeBlock].chr = chr;
         listShape[typeBlock].quantity = quantity;
         listShape[typeBlock].directionX = directionX;
         listShape[typeBlock].nextTickTriggerY = nextTickTriggerY;
@@ -864,33 +864,33 @@ private:
     void initializeBlockShape()
     {
         // TWO
-        this->assignBlockShape(BLOCK_LEFT_TWO_1, '^', 2, FROM_LEFT, 0, 3, slope + 3);
-        this->assignBlockShape(BLOCK_LEFT_TWO_2, '^', 2, FROM_LEFT, 0, 4, slope + 1);
-        this->assignBlockShape(BLOCK_RIGHT_TWO_1, '^', 2, FROM_RIGHT, 0, 3, slope + 3);
-        this->assignBlockShape(BLOCK_RIGHT_TWO_2, '^', 2, FROM_RIGHT, 0, 4, slope + 1);
+        this->assignBlockShape(BLOCK_LEFT_TWO_1, 2, FROM_LEFT, 0, 3, slope + 3);
+        this->assignBlockShape(BLOCK_LEFT_TWO_2, 2, FROM_LEFT, 0, 4, slope + 1);
+        this->assignBlockShape(BLOCK_RIGHT_TWO_1, 2, FROM_RIGHT, 0, 3, slope + 3);
+        this->assignBlockShape(BLOCK_RIGHT_TWO_2, 2, FROM_RIGHT, 0, 4, slope + 1);
 
         // THREE
-        this->assignBlockShape(BLOCK_LEFT_THREE_1, '^', 3, FROM_LEFT, 2, 0, slope + 1);
-        this->assignBlockShape(BLOCK_LEFT_THREE_2, '^', 3, FROM_LEFT, 2, 0, g_screenHeight - (slope + 1));
-        this->assignBlockShape(BLOCK_RIGHT_THREE_1, '^', 3, FROM_RIGHT, 2, 0, slope + 1);
-        this->assignBlockShape(BLOCK_RIGHT_THREE_2, '^', 3, FROM_RIGHT, 2, 0, g_screenHeight - (slope + 1));
+        this->assignBlockShape(BLOCK_LEFT_THREE_1, 3, FROM_LEFT, 2, 0, slope + 1);
+        this->assignBlockShape(BLOCK_LEFT_THREE_2, 3, FROM_LEFT, 2, 0, g_screenHeight - (slope + 1));
+        this->assignBlockShape(BLOCK_RIGHT_THREE_1, 3, FROM_RIGHT, 2, 0, slope + 1);
+        this->assignBlockShape(BLOCK_RIGHT_THREE_2, 3, FROM_RIGHT, 2, 0, g_screenHeight - (slope + 1));
 
         // FOUR
-        this->assignBlockShape(BLOCK_LEFT_FOUR_1, '^', 4, FROM_LEFT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
-        this->assignBlockShape(BLOCK_LEFT_FOUR_2, '^', 4, FROM_LEFT, 1, DESCEND_SLOPE, slope + 3);
-        this->assignBlockShape(BLOCK_RIGHT_FOUR_1, '^', 4, FROM_RIGHT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
-        this->assignBlockShape(BLOCK_RIGHT_FOUR_2, '^', 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
+        this->assignBlockShape(BLOCK_LEFT_FOUR_1, 4, FROM_LEFT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
+        this->assignBlockShape(BLOCK_LEFT_FOUR_2, 4, FROM_LEFT, 1, DESCEND_SLOPE, slope + 3);
+        this->assignBlockShape(BLOCK_RIGHT_FOUR_1, 4, FROM_RIGHT, 1, ASCEND_SLOPE, g_screenHeight - slope - 1);
+        this->assignBlockShape(BLOCK_RIGHT_FOUR_2, 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
 
         // ONE
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1, 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2, 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, true);
 
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2, '^', 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1, 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2, 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, false);
     }
 
     void initializeSequenceRevealShape()
