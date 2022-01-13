@@ -1,3 +1,29 @@
+//                                                bbbbbbbb                                                
+//                   lllllll         tttt         b::::::b               999999999          999999999     
+//                   l:::::l      ttt:::t         b::::::b             99:::::::::99      99:::::::::99   
+//                   l:::::l      t:::::t         b::::::b           99:::::::::::::99  99:::::::::::::99 
+//                   l:::::l      t:::::t          b:::::b          9::::::99999::::::99::::::99999::::::9
+// nnnn  nnnnnnnn     l::::lttttttt:::::ttttttt    b:::::bbbbbbbbb  9:::::9     9:::::99:::::9     9:::::9
+// n:::nn::::::::nn   l::::lt:::::::::::::::::t    b::::::::::::::bb9:::::9     9:::::99:::::9     9:::::9
+// n::::::::::::::nn  l::::lt:::::::::::::::::t    b::::::::::::::::b9:::::99999::::::9 9:::::99999::::::9
+// nn:::::::::::::::n l::::ltttttt:::::::tttttt    b:::::bbbbb:::::::b99::::::::::::::9  99::::::::::::::9
+//   n:::::nnnn:::::n l::::l      t:::::t          b:::::b    b::::::b  99999::::::::9     99999::::::::9 
+//   n::::n    n::::n l::::l      t:::::t          b:::::b     b:::::b       9::::::9           9::::::9  
+//   n::::n    n::::n l::::l      t:::::t          b:::::b     b:::::b      9::::::9           9::::::9   
+//   n::::n    n::::n l::::l      t:::::t    ttttttb:::::b     b:::::b     9::::::9           9::::::9    
+//   n::::n    n::::nl::::::l     t::::::tttt:::::tb:::::bbbbbb::::::b    9::::::9           9::::::9     
+//   n::::n    n::::nl::::::l     tt::::::::::::::tb::::::::::::::::b    9::::::9           9::::::9      
+//   n::::n    n::::nl::::::l       tt:::::::::::ttb:::::::::::::::b    9::::::9           9::::::9       
+//   nnnnnn    nnnnnnllllllll         ttttttttttt  bbbbbbbbbbbbbbbb    99999999           99999999   
+
+/* 
+ *
+ * This game was inspired by "I wanna be the Boshy" created by developer Jesper "Solgryn" Erlandsen. 
+ * I used to dream of implementing this scene in Unity 2D mobile platform game, but I chose console game instead and using C++ for development.
+ * For some reason, there was some flicker delay in some Terminal/CMD. Hope you guys find it pleasing.
+ * 
+ */ 
+
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
@@ -569,7 +595,6 @@ public:
 
             // * Update
             this->computeTicks();
-            // ?
             // this->appendBlockBasedOnScript();
             this->appendBlockAutomation();
             this->checkingPlayerCollision();
