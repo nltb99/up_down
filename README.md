@@ -37,6 +37,11 @@ These platforms are tested to be working.
 ### Windows
 
     choco install up_down
+    
+#### Run
+
+    up_down
+
 
 
 ## Building from source
