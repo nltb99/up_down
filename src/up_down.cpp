@@ -496,7 +496,7 @@ public:
         mvwaddch(stdscr, posY, posX, chr);
 
         // * Reverse direction Y
-        if(posY + (1 * velocityY) < THRESHOLD || (posY > g_screenHeight - THRESHOLD)){
+        if(posY + (1 * velocityY) + 1 < THRESHOLD || (posY + 1 > g_screenHeight - THRESHOLD)){
             velocityY = -velocityY;
         }
 
@@ -677,7 +677,11 @@ private:
                 }
                 break;
             default:
-                if(keyPressed != -1 && g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT){
+                if(
+                    (keyPressed != -1 && g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT) || 
+                    keyPressed == 113 || 
+                    keyPressed == 81
+                ){
                     g_sCoreStatus = STATUS::GAME_STOP;
                 }
         }
@@ -910,7 +914,7 @@ int main(int argc, const char * argv[])
     curs_set(0);
     std::srand(time(NULL));
 
-    Core* core = new Core(STATUS::GAME_ASK_PLAY_AGAIN);
+    Core* core = new Core(STATUS::GAME_MENU_START);
     core->init();
 
     while(core->getStatusGame() != STATUS::GAME_STOP) {
