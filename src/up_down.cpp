@@ -886,13 +886,13 @@ private:
         this->assignBlockShape(BLOCK_RIGHT_FOUR_2, 4, FROM_RIGHT, 1, DESCEND_SLOPE, slope + 3);
 
         // ONE
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, true);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_1, 2, FROM_LEFT, 1, g_screenHeight * 0.2, 1, true);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_REVERSE_2, 2, FROM_LEFT, 1, g_screenHeight * 0.8, -1, true);
         this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_1, 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, true);
         this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_REVERSE_2, 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, true);
 
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, 1, FROM_LEFT, 1, g_screenHeight * 0.2, 1, false);
-        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, 1, FROM_LEFT, 1, g_screenHeight * 0.8, -1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_1, 2, FROM_LEFT, 1, g_screenHeight * 0.2, 1, false);
+        this->assignBlockShapeWithAnimation(BLOCK_LEFT_ONE_ANIMATION_NO_REVERSE_2, 2, FROM_LEFT, 1, g_screenHeight * 0.8, -1, false);
         this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_1, 1, FROM_RIGHT, 1, g_screenHeight * 0.2, 1, false);
         this->assignBlockShapeWithAnimation(BLOCK_RIGHT_ONE_ANIMATION_NO_REVERSE_2, 1, FROM_RIGHT, 1, g_screenHeight * 0.8, -1, false);
     }
