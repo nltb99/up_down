@@ -33,6 +33,9 @@
 #include <time.h>
 #include <cstdlib>
 
+#include <stdio.h>
+#include <sqlite3.h> 
+
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -42,30 +45,39 @@
 #define THRESHOLD 2
 #define SECOND 1000
 #define PLAYER_CHARACTER '@'
-#define TOTAL_MENU 3
+#define TOTAL_MENU 4
 
 namespace STATUS
 {
     const std::string GAME_MENU_START = "GAME_MENU_START";
     const std::string GAME_ASK_PLAY_AGAIN = "GAME_ASK_PLAY_AGAIN";
     const std::string GAME_PLAYING = "GAME_PLAYING";
+    const std::string GAME_HIGH_SCORE = "GAME_HIGH_SCORE";
     const std::string GAME_SELECT_LEVEL = "GAME_SELECT_LEVEL";
     const std::string GAME_NOT_MEET_DIMENSION_REQUIREMENT = "GAME_NOT_MEET_DIMENSION_REQUIREMENT";
     const std::string GAME_STOP = "GAME_STOP";
 } 
 
-namespace LEVEL
+namespace LEVEL_INDEX
 {
     const int EASY = 1;
     const int NORMAL = 2;
     const int HARD = 3;
 }
 
+namespace LEVEL_TITLE
+{
+    const std::string EASY = "Easy";
+    const std::string NORMAL = "Normal";
+    const std::string HARD = "Hard";
+}
+
 namespace MENU
 {
     const int START_GAME = 1;
-    const int LEVEL = 2;
-    const int EXIT = 3;
+    const int HIGH_SCORE = 2;
+    const int LEVEL = 3;
+    const int EXIT = 4;
 }
 
 int g_windowWidth, g_windowHeight;
@@ -75,10 +87,12 @@ int FPS;
 int slope, spaceBetween;
 long double current_ticks = 0;
 int index_menu_selected = 1; // min 1
-int level_selected = LEVEL::NORMAL;
+int level_selected = LEVEL_INDEX::NORMAL;
 int score;
 std::string listRandomCharMenu[5] = { "~", "-", "=", "*", "+"};
 char listRandomCharBlock[5] = { '#', '$', '%', '&', '+'};
+std::vector<std::string> listHighScore;
+std::vector<std::string> listLevel;
 
 enum : int {
     ASCEND_SLOPE = -1,
@@ -344,20 +358,18 @@ public:
 
     void drawMenuStartGame()
     {
-        #ifdef _WIN32
-        Sleep(99999 / 1000);
-        #else
-        usleep(99999);
-        #endif
-
-        int heightBox = 11;
+        int heightBox = 13;
         int widthBox = 50;
         std::string titleMenu = "Start Game";
+        std::string highScore = "High Score";
         std::string level = "Level";
         std::string exit = "Exit";
         switch(index_menu_selected){
             case MENU::START_GAME:
                 titleMenu += " *";
+                break;
+            case MENU::HIGH_SCORE:
+                highScore += " *";
                 break;
             case MENU::LEVEL:
                 level += " *";
@@ -370,26 +382,26 @@ public:
         this->drawMenuBox(heightBox, widthBox);
         mvprintw(2, (widthBox / 2) - 3, "Up & Down");
         mvprintw(4, (widthBox / 2) - 4, titleMenu.c_str());
-        mvprintw(6, (widthBox / 2) - 2, level.c_str());
-        mvprintw(8, (widthBox / 2) - 1, exit.c_str());
+        mvprintw(6, (widthBox / 2) - 4, highScore.c_str());
+        mvprintw(8, (widthBox / 2) - 2, level.c_str());
+        mvprintw(10, (widthBox / 2) - 1, exit.c_str());
+        this->delayBoard();
     }
 
     void drawMenuPlayAgain()
     {
-        #ifdef _WIN32
-        Sleep(99999 / 1000);
-        #else
-        usleep(99999);
-        #endif
-
-        int heightBox = 15;
+        int heightBox = 17;
         int widthBox = 50;
         std::string titleMenu = "Play Again";
+        std::string highScore = "High Score";
         std::string level = "Level";
         std::string exit = "Exit";
         switch(index_menu_selected){
             case MENU::START_GAME:
                 titleMenu += " *";
+                break;
+            case MENU::HIGH_SCORE:
+                highScore += " *";
                 break;
             case MENU::LEVEL:
                 level += " *";
@@ -404,44 +416,40 @@ public:
         mvprintw(4, (widthBox / 2) - 4, "Your Score");
         mvprintw(6, (widthBox / 2), std::to_string(score).c_str());
         mvprintw(8, (widthBox / 2) - 4, titleMenu.c_str());
-        mvprintw(10, (widthBox / 2) - 2, level.c_str());
-        mvprintw(12, (widthBox / 2) - 1, exit.c_str());
+        mvprintw(10, (widthBox / 2) - 4, highScore.c_str());
+        mvprintw(12, (widthBox / 2) - 2, level.c_str());
+        mvprintw(14, (widthBox / 2) - 1, exit.c_str());
+        this->delayBoard();
     }
 
     void drawMenuSelectLevel()
     {
-        #ifdef _WIN32
-        Sleep(99999 / 1000);
-        #else
-        usleep(99999);
-        #endif
-
         int heightBox = 13;
         int widthBox = 50;
         std::string titleMenu = "Select Level";
-        std::string easy = "Easy";
-        std::string normal = "Normal";
-        std::string hard = "Hard";
+        std::string easy = LEVEL_TITLE::EASY;
+        std::string normal = LEVEL_TITLE::NORMAL;
+        std::string hard = LEVEL_TITLE::HARD;
         switch(index_menu_selected){
-            case LEVEL::EASY:
+            case LEVEL_INDEX::EASY:
                 easy += " *";
                 break;
-            case LEVEL::NORMAL:
+            case LEVEL_INDEX::NORMAL:
                 normal += " *";
                 break;
-            case LEVEL::HARD:
+            case LEVEL_INDEX::HARD:
                 hard += " *";
                 break;
         }
 
         switch(level_selected){
-            case LEVEL::EASY:
+            case LEVEL_INDEX::EASY:
                 easy = "@ " + easy;
                 break;
-            case LEVEL::NORMAL:
+            case LEVEL_INDEX::NORMAL:
                 normal = "@ " + normal;
                 break;
-            case LEVEL::HARD:
+            case LEVEL_INDEX::HARD:
                 hard = "@ " + hard;
                 break;
         }
@@ -452,6 +460,24 @@ public:
         mvprintw(6, (widthBox / 2) - 1, easy.c_str());
         mvprintw(8, (widthBox / 2) - 2, normal.c_str());
         mvprintw(10, (widthBox / 2) - 1, hard.c_str());
+        this->delayBoard();
+    }
+
+    void drawHighScore()
+    {
+        int heightBox = 15;
+        int widthBox = 50;
+        std::string titleMenu = "High Score";
+
+        this->drawMenuBox(heightBox, widthBox);
+        mvprintw(2, (widthBox / 2) - 3, "Up & Down");
+        mvprintw(4, (widthBox / 2) - 4, titleMenu.c_str());
+        for(int i = 0; i < listHighScore.size(); ++i){
+            mvprintw(6 + (i * 2), (widthBox / 2) - 5, listLevel[i].c_str());
+            mvprintw(6 + (i * 2), (widthBox / 2) + 5, listHighScore[i].c_str());
+        }
+        mvprintw(12, (widthBox / 2) - 1, "Exit *");
+        this->delayBoard();
     }
 
     void drawMenuBox(const int heightBox, const int widthBox)
@@ -459,6 +485,15 @@ public:
         int lenListChar = sizeof(listRandomCharMenu)/sizeof(listRandomCharMenu[0]);
         int randomIndex = std::rand() % lenListChar;
         this->drawRectangle(heightBox, widthBox, listRandomCharMenu[randomIndex]);
+    }
+
+    void delayBoard()
+    {
+        #ifdef _WIN32
+        Sleep(99999 / 1000);
+        #else
+        usleep(99999);
+        #endif
     }
 
     void drawAlertNotMetRequirement()
@@ -539,6 +574,168 @@ private:
     char chr;
 };
 
+class Database 
+{
+public:
+
+    Database() {}
+
+    ~Database() {}
+
+    bool connectDB()
+    {
+        result = sqlite3_open("up_down.db", &db);
+        if(result){
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    void disconnectDB()
+    {
+        sqlite3_close(db);
+    }
+
+    bool createTable()
+    {
+        if(!this->connectDB()) return false;
+
+        sql = "CREATE TABLE UP_DOWN("  \
+            "id         INT PRIMARY KEY     NOT NULL," \
+            "level      CHAR(50)," \
+            "score      INT   NOT NULL," \
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);";
+
+        result = sqlite3_exec(db, sql, callback, 0, &errorMessage);
+        
+        if(result != SQLITE_OK){
+            sqlite3_free(errorMessage);
+            this->disconnectDB();
+            return false;
+        } 
+        
+        this->disconnectDB();
+        return true;
+    }   
+     
+    void insertTable()
+    {
+        if(!this->connectDB()) return;
+
+        sql = "INSERT INTO UP_DOWN (id,level,score) "  \
+            "VALUES (1, 'Easy', 0); " \
+            "INSERT INTO UP_DOWN (id,level,score) "  \
+            "VALUES (2, 'Normal', 0); "     \
+            "INSERT INTO UP_DOWN (id,level,score) " \
+            "VALUES (3, 'Hard', 0); ";
+
+        result = sqlite3_exec(db, sql, callback, 0, &errorMessage);
+        
+        if(result != SQLITE_OK){
+            sqlite3_free(errorMessage);
+        }
+
+        this->disconnectDB();
+    }
+
+    void getAllTable()
+    {
+        if(!this->connectDB()) return;
+
+        this->onClearList();
+
+        sql = "SELECT * FROM UP_DOWN";
+
+        result = sqlite3_exec(db, sql, callback, (void*)data, &errorMessage);
+        
+        if(result != SQLITE_OK) {
+            sqlite3_free(errorMessage);
+        } 
+
+        this->disconnectDB();
+    }
+
+    int getScoreByLevel()
+    {   
+        if(!this->connectDB()) return -1;
+        
+        const std::string level = this->getCurrentLevel(level_selected);
+
+        this->onClearList();
+
+        sql2 = "SELECT * FROM UP_DOWN WHERE level='" + level + "';";
+
+        result = sqlite3_exec(db, sql2.c_str(), callback, (void*)data, &errorMessage);
+
+        if(result != SQLITE_OK) {
+            sqlite3_free(errorMessage);
+            this->disconnectDB();
+            return -1;
+        } 
+
+        this->disconnectDB();
+
+        return std::stoi(listHighScore[0]);
+    }
+
+    void updateScoreByLevel()
+    {
+        if(!this->connectDB()) return;
+        const std::string level = this->getCurrentLevel(level_selected);
+
+        sql2 = "UPDATE UP_DOWN set score=" + std::to_string((long)current_ticks) + " where level='" + level + "';";
+
+        result = sqlite3_exec(db, sql2.c_str(), callback, (void*)data, &errorMessage);
+
+        if(result != SQLITE_OK) {
+            sqlite3_free(errorMessage);
+        } 
+
+        this->disconnectDB();
+    }
+
+    void onClearList()
+    {
+        listLevel.clear();
+        listLevel.shrink_to_fit();
+
+        listHighScore.clear();
+        listHighScore.shrink_to_fit();
+    }
+
+    std::string getCurrentLevel(const int currentLevel){
+        switch(currentLevel){
+            case LEVEL_INDEX::EASY:
+                return LEVEL_TITLE::EASY;
+            case LEVEL_INDEX::NORMAL:
+                return LEVEL_TITLE::NORMAL;
+            case LEVEL_INDEX::HARD:
+                return LEVEL_TITLE::HARD;
+        }
+    }
+
+    static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+        for(int i = 0; i < argc; i++) {
+            if(i == 1){
+                listLevel.push_back(argv[i]);
+            }
+            if(i == 2){
+                listHighScore.push_back(argv[i]);
+            }
+        }
+        return 0;
+    }
+
+private:
+    sqlite3 *db;
+    char *errorMessage = 0;
+    int result;
+    char *sql;
+    std::string sql2;
+    const char* data = "Callback function called";
+};
+
 class Core : public Entity
 {
 public:
@@ -572,6 +769,7 @@ public:
         this->initializeBlockShape();
         this->initializeSequenceRevealShape();
         this->initializeInstance();
+        this->initDatabase();
     }
 
     void update()
@@ -585,7 +783,9 @@ public:
             context->drawMenuPlayAgain();
         } else if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL){
             context->drawMenuSelectLevel();
-        } else if(g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT){
+        } else if(g_sCoreStatus == STATUS::GAME_HIGH_SCORE){
+            context->drawHighScore();
+        }  else if(g_sCoreStatus == STATUS::GAME_NOT_MEET_DIMENSION_REQUIREMENT){
             context->drawAlertNotMetRequirement();
         } else if(g_sCoreStatus == STATUS::GAME_PLAYING){
             // * Render
@@ -611,6 +811,8 @@ public:
 private:
     Player* player;
     Context* context;
+    Database* database;
+
     std::string g_sCoreStatus;
     int marked_tick_append_last_block;
 
@@ -623,7 +825,8 @@ private:
         bool isInMenuScreen = 
             g_sCoreStatus == STATUS::GAME_MENU_START || 
             g_sCoreStatus == STATUS::GAME_SELECT_LEVEL ||
-            g_sCoreStatus == STATUS::GAME_ASK_PLAY_AGAIN;
+            g_sCoreStatus == STATUS::GAME_ASK_PLAY_AGAIN ||
+            g_sCoreStatus == STATUS::GAME_HIGH_SCORE;
 
         switch(keyPressed){
             case KEY_LEFT:
@@ -654,9 +857,9 @@ private:
                     player->onStand();
                 }
                 break;
-            case 10: // ENTER
+            case 10: // * ENTER
                 if(isInMenuScreen){
-                    if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL){
+                    if(g_sCoreStatus == STATUS::GAME_SELECT_LEVEL || g_sCoreStatus == STATUS::GAME_HIGH_SCORE){
                         level_selected = index_menu_selected;
                         index_menu_selected = MENU::LEVEL;
                         g_sCoreStatus = STATUS::GAME_MENU_START;
@@ -664,6 +867,10 @@ private:
                         switch(index_menu_selected){
                             case MENU::START_GAME:
                                 g_sCoreStatus = STATUS::GAME_PLAYING;
+                                break;
+                            case MENU::HIGH_SCORE:
+                                database->getAllTable();
+                                g_sCoreStatus = STATUS::GAME_HIGH_SCORE;
                                 break;
                             case MENU::LEVEL:
                                 index_menu_selected = level_selected;
@@ -723,6 +930,13 @@ private:
         }
     }
 
+    void initDatabase()
+    {
+        if(database->createTable()){
+            database->insertTable();
+        }
+    }
+
     void getTerminalDimension()
     {
         getmaxyx(stdscr, g_windowHeight, g_windowWidth);
@@ -746,6 +960,10 @@ private:
 
         player = new Player(PLAYER_CHARACTER);
 
+        // ?
+        if((long)current_ticks > database->getScoreByLevel()){
+            database->updateScoreByLevel();
+        }
         score = current_ticks;
         marked_tick_append_last_block = 0;
         current_ticks = 0;
@@ -788,6 +1006,7 @@ private:
     {
         player = new Player(PLAYER_CHARACTER);
         context = new Context();
+        database = new Database();
     }
 
     void assignBlockShape(
@@ -846,13 +1065,13 @@ private:
     {
         int8_t nextTickAppend = 0;
         switch (level_selected) {
-            case LEVEL::EASY:
+            case LEVEL_INDEX::EASY:
                 nextTickAppend = 3;
                 break;
-            case LEVEL::NORMAL:
+            case LEVEL_INDEX::NORMAL:
                 nextTickAppend = 2;
                 break;
-            case LEVEL::HARD:
+            case LEVEL_INDEX::HARD:
                 nextTickAppend = 1;
                 break;
         }
