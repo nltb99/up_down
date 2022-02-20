@@ -10,11 +10,7 @@ For some reason, there was some flicker delay in some Terminal/CMD. Hope you guy
 
 ## Platforms
 
-These platforms are tested to be working.
-
 1. Mac OS X
-2. Windows
-3. Linux
 
 ## Controls:
 
