@@ -11,6 +11,7 @@ For some reason, there was some flicker delay in some Terminal/CMD. Hope you guy
 ## Platforms
 
 1. Mac OS X
+2. Windows
 
 ## Controls:
 
