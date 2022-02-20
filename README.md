@@ -30,13 +30,9 @@ These platforms are tested to be working.
 
     brew tap nltb99/up_down && brew install up_down
 
-### Linux
-
-    sudo apt-get install up_down
-
 ### Windows
 
-    choco install up_down
+    NOT YET
     
 #### Run
 
@@ -51,17 +47,7 @@ These platforms are tested to be working.
 1. Install dependencies:
     * macOS:
 
-            brew install ncurses
-
-    * Window:
-
-            # Install MinGW compiler and follow these instructions
-            - https://e-l.unifi.it/pluginfile.php/805205/mod_resource/content/0/ncurses%20installation%20-%20en.pdf
-    
-    * Linux:
-
-            sudo apt-get install gcc make
-            sudo apt-get install libncurses5-dev libncursesw5-dev
+            brew install ncurses gcc
 
 
             
@@ -70,14 +56,6 @@ These platforms are tested to be working.
    On MacOS:
 
         make runmac
-
-    On Windows:
-
-        make runwin
-
-    On Linux:
-
-        make runlinux
 
 
 
